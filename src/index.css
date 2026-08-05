@@ -1,0 +1,33 @@
+@import url('https://donut-font.vercel.app/api/css2?family=Graphik+Thai+Loop:wght@100;200;300;400;500;600;700;900&display=swap');
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: 'Graphik Thai Loop', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+html, body {
+  /* ป้องกันการ Pull-to-Refresh และ Overscroll Bounce */
+  overscroll-behavior-y: contain;
+  /* หรือใช้ none เพื่อปิดการเด้งทุกรูปแบบ */
+  /* overscroll-behavior-y: none; */
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    @apply bg-gray-50 text-gray-900 antialiased select-none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ซ่อน Spinner ของ Input Number เพื่อความ Clean บน UI Mobile */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}

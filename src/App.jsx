@@ -23,28 +23,26 @@ import { saveDailyReport } from './services/reportService';
 import { generateReportText } from './utils/generateReport';
 import { copyToClipboard } from './utils/clipboard';
 
+const DRAFT_STORAGE_KEY = 'px_report_draft_values';
+
 export default function App() {
   const [sellers, setSellers] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Debug & History Sheet Control States
   const [isDebugOpen, setIsDebugOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  // Sheets & Modals Control
   const [isAddSellerOpen, setIsAddSellerOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [selectedSellerId, setSelectedSellerId] = useState(null);
 
-  // Delete Target Modal (เฉพาะลบ Seller)
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  // Statuses
   const [isCopied, setIsCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch Initial Data
+  // ดึงข้อมูลหลักจาก DB + โหลดค่า Draft จาก LocalStorage มาดักเติม
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -53,18 +51,33 @@ export default function App() {
         getProducts()
       ]);
 
-      // เรียงลำดับตาม sort_order ก่อนเข้า State
       const sortedSellers = (sellerData || []).sort(
         (a, b) => (a.sort_order || a.id) - (b.sort_order || b.id)
       );
       setSellers(sortedSellers);
       
-      const formattedProducts = (productData || []).map((p) => ({
-        ...p,
-        sent: '',
-        sold: '',
-        remain: ''
-      }));
+      // 🟢 1. ดึงค่าร่างที่เคยพิมพ์ค้างไว้จาก localStorage
+      let savedDrafts = {};
+      try {
+        const localData = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (localData) {
+          savedDrafts = JSON.parse(localData);
+        }
+      } catch (e) {
+        console.error('Error reading draft from localStorage:', e);
+      }
+
+      // 🟢 2. แมปค่าค้างเดิม (sent / sold) กลับเข้าสินค้าแต่ละรายการ
+      const formattedProducts = (productData || []).map((p) => {
+        const draft = savedDrafts[p.id] || {};
+        return {
+          ...p,
+          sent: draft.sent !== undefined ? draft.sent : '',
+          sold: draft.sold !== undefined ? draft.sold : '',
+          remain: draft.remain !== undefined ? draft.remain : ''
+        };
+      });
+
       setProducts(formattedProducts);
     } catch (err) {
       console.error('Error loading data from database:', err);
@@ -77,18 +90,40 @@ export default function App() {
     fetchData();
   }, []);
 
-  // 🟢 ลากสลับลำดับผู้ฝากขาย + อัปเดต sort_order ลง Database
+  // 🟢 3. Auto-Save บันทึกค่าพิมพ์ร่างลง localStorage ทุกครั้งที่ products เปลี่ยนแปลง
+  useEffect(() => {
+    if (loading || products.length === 0) return;
+
+    const draftMap = {};
+    let hasDraftData = false;
+
+    products.forEach((p) => {
+      if (p.sent !== '' || p.sold !== '') {
+        draftMap[p.id] = {
+          sent: p.sent,
+          sold: p.sold,
+          remain: p.remain
+        };
+        hasDraftData = true;
+      }
+    });
+
+    if (hasDraftData) {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftMap));
+    } else {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    }
+  }, [products, loading]);
+
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
 
     const previousSellers = [...sellers];
 
-    // 1. สลับตำแหน่งใน State ก่อนเพื่อให้ UI ตอบสนองทันที
     const reorderedSellers = Array.from(sellers);
     const [movedSeller] = reorderedSellers.splice(result.source.index, 1);
     reorderedSellers.splice(result.destination.index, 0, movedSeller);
 
-    // 2. รันลำดับ sort_order ใหม่ (1, 2, 3...)
     const updatedSellersWithOrder = reorderedSellers.map((seller, index) => ({
       ...seller,
       sort_order: index + 1
@@ -96,25 +131,21 @@ export default function App() {
 
     setSellers(updatedSellersWithOrder);
 
-    // 3. บันทึกลำดับใหม่ลง Database
     try {
       await updateSellersSortOrder(updatedSellersWithOrder);
     } catch (err) {
       console.error('Failed to save sort order:', err);
       alert('เกิดข้อผิดพลาดในการบันทึกลำดับลง Database');
-      // คืนค่า State เดิมหากมีปัญหา
       setSellers(previousSellers);
     }
   };
 
-  // Update Product Inputs
   const handleProductChange = (productId, updatedProduct) => {
     setProducts((prev) =>
       prev.map((p) => (String(p.id) === String(productId) ? updatedProduct : p))
     );
   };
 
-  // Add Seller
   const handleAddSeller = async (name) => {
     try {
       const newSeller = await createSeller(name, sellers.length + 1);
@@ -124,7 +155,6 @@ export default function App() {
     }
   };
 
-  // Add Product
   const handleAddProduct = async (sellerId, name, unit) => {
     try {
       const sellerProducts = products.filter((p) => String(p.seller_id) === String(sellerId));
@@ -135,7 +165,6 @@ export default function App() {
     }
   };
 
-  // ลบสินค้าโดยตรงทันที
   const handleDeleteProductDirectly = async (productId) => {
     const previousProducts = [...products];
     setProducts((prev) => prev.filter((p) => String(p.id) !== String(productId)));
@@ -149,7 +178,6 @@ export default function App() {
     }
   };
 
-  // ยืนยันลบผู้ฝากขาย
   const handleConfirmDeleteSeller = async () => {
     if (!deleteTarget) return;
 
@@ -192,6 +220,13 @@ export default function App() {
       const success = await copyToClipboard(reportText);
       if (success) {
         setIsCopied(true);
+
+        // 🟢 4. ล้างค่า Draft ใน localStorage และล้างฟอร์มเมื่อส่งรายงานสำเร็จ
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+        setProducts((prev) =>
+          prev.map((p) => ({ ...p, sent: '', sold: '', remain: '' }))
+        );
+
         setTimeout(() => setIsCopied(false), 3000);
       } else {
         alert('บันทึกข้อมูลเรียบร้อยแล้ว (ไม่สามารถคัดลอกข้อความอัตโนมัติได้)');
@@ -221,7 +256,6 @@ export default function App() {
         ) : sellers.length === 0 ? (
           <EmptyState onAddSeller={() => setIsAddSellerOpen(true)} />
         ) : (
-          /* 🟢 Drag and Drop Context จัดเรียงลำดับ */
           <DragDropContext onDragEnd={handleDragEnd}>
             <Droppable droppableId="sellers-list">
               {(provided) => (
@@ -302,6 +336,7 @@ export default function App() {
         onConfirm={handleConfirmDeleteSeller}
         onCancel={() => setDeleteTarget(null)}
       />
+
       <InstallPWA />
     </div>
   );

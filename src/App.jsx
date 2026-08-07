@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { BarChart3 } from 'lucide-react';
 import Header from './components/Header';
 import SellerAccordion from './components/SellerAccordion';
 import BottomBar from './components/BottomBar';
@@ -11,6 +13,7 @@ import Loading from './components/Loading';
 import DbHealthCheck from './components/DbHealthCheck';
 import HistorySheet from './components/HistorySheet';
 import InstallPWA from './components/InstallPWA';
+import Dashboard from './components/Dashboard';
 
 import { 
   getSellers, 
@@ -25,14 +28,15 @@ import {
   updateProduct,
   deleteProduct 
 } from './services/productService';
-import { saveDailyReport } from './services/reportService';
+import { saveDailyReport, getTodayReport, getLatestPreviousReports } from './services/reportService';
 import { generateReportText } from './utils/generateReport';
 import { copyToClipboard } from './utils/clipboard';
 
 const DRAFT_STORAGE_KEY = 'px_report_draft_values';
-const APP_VERSION = 'v1.2.0';
+const APP_VERSION = 'v1.5.0';
 
 export default function App() {
+  const navigate = useNavigate();
   const [sellers, setSellers] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,13 +53,14 @@ export default function App() {
   const [isCopied, setIsCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ดึงข้อมูลหลักจาก DB + โหลดค่า Draft จาก LocalStorage มาดักเติม
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [sellerData, productData] = await Promise.all([
+      const [sellerData, productData, todayReportData, prevReportData] = await Promise.all([
         getSellers(),
-        getProducts()
+        getProducts(),
+        getTodayReport(),
+        getLatestPreviousReports()
       ]);
 
       const sortedSellers = (sellerData || []).sort(
@@ -63,7 +68,16 @@ export default function App() {
       );
       setSellers(sortedSellers);
       
-      // 🟢 1. ดึงค่าร่างที่เคยพิมพ์ค้างไว้จาก localStorage
+      const todayReportMap = {};
+      (todayReportData || []).forEach((item) => {
+        todayReportMap[String(item.product_id)] = item;
+      });
+
+      const prevReportMap = {};
+      (prevReportData || []).forEach((item) => {
+        prevReportMap[String(item.product_id)] = item.prev_remain;
+      });
+
       let savedDrafts = {};
       try {
         const localData = localStorage.getItem(DRAFT_STORAGE_KEY);
@@ -74,14 +88,29 @@ export default function App() {
         console.error('Error reading draft from localStorage:', e);
       }
 
-      // 🟢 2. แมปค่าค้างเดิม (sent / sold) กลับเข้าสินค้าแต่ละรายการ
       const formattedProducts = (productData || []).map((p) => {
-        const draft = savedDrafts[p.id] || {};
+        const pIdStr = String(p.id);
+        const draft = savedDrafts[pIdStr] || {};
+        const todayDbItem = todayReportMap[pIdStr];
+
+        const sentVal = draft.sent !== undefined 
+          ? draft.sent 
+          : (todayDbItem ? todayDbItem.sent : '');
+          
+        const soldVal = draft.sold !== undefined 
+          ? draft.sold 
+          : (todayDbItem ? todayDbItem.sold : '');
+
+        const remainVal = draft.remain !== undefined 
+          ? draft.remain 
+          : (todayDbItem ? todayDbItem.remain : '');
+
         return {
           ...p,
-          sent: draft.sent !== undefined ? draft.sent : '',
-          sold: draft.sold !== undefined ? draft.sold : '',
-          remain: draft.remain !== undefined ? draft.remain : ''
+          sent: sentVal,
+          sold: soldVal,
+          remain: remainVal,
+          prev_remain: prevReportMap[pIdStr] !== undefined ? prevReportMap[pIdStr] : null
         };
       });
 
@@ -97,7 +126,6 @@ export default function App() {
     fetchData();
   }, []);
 
-  // 🟢 3. Auto-Save บันทึกค่าพิมพ์ร่างลง localStorage ทุกครั้งที่ products เปลี่ยนแปลง
   useEffect(() => {
     if (loading || products.length === 0) return;
 
@@ -106,7 +134,7 @@ export default function App() {
 
     products.forEach((p) => {
       if (p.sent !== '' || p.sold !== '') {
-        draftMap[p.id] = {
+        draftMap[String(p.id)] = {
           sent: p.sent,
           sold: p.sold,
           remain: p.remain
@@ -162,7 +190,6 @@ export default function App() {
     }
   };
 
-  // 🟢 อัปเดตชื่อผู้ฝากขาย (Inline Edit)
   const handleUpdateSeller = async (id, name) => {
     try {
       const updated = await updateSeller(id, name);
@@ -187,7 +214,6 @@ export default function App() {
     }
   };
 
-  // 🟢 อัปเดตชื่อสินค้า/หน่วยนับ (Inline Edit)
   const handleUpdateProduct = async (id, name, unit) => {
     try {
       const updated = await updateProduct(id, name, unit);
@@ -236,7 +262,6 @@ export default function App() {
     }
   };
 
-  // บันทึกรายงาน และ คัดลอก
   const handleGenerateReport = async () => {
     if (sellers.length === 0) {
       alert('ยังไม่มีข้อมูลผู้ฝากขาย');
@@ -261,13 +286,7 @@ export default function App() {
       const success = await copyToClipboard(reportText);
       if (success) {
         setIsCopied(true);
-
-        // 🟢 4. ล้างค่า Draft ใน localStorage และล้างฟอร์มเมื่อส่งรายงานสำเร็จ
         localStorage.removeItem(DRAFT_STORAGE_KEY);
-        setProducts((prev) =>
-          prev.map((p) => ({ ...p, sent: '', sold: '', remain: '' }))
-        );
-
         setTimeout(() => setIsCopied(false), 3000);
       } else {
         alert('บันทึกข้อมูลเรียบร้อยแล้ว (ไม่สามารถคัดลอกข้อความอัตโนมัติได้)');
@@ -281,113 +300,137 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28 font-sans text-gray-900 flex flex-col justify-between">
-      <div>
-        <Header 
-          onOpenAddSeller={() => setIsAddSellerOpen(true)}
-          isDebugOpen={isDebugOpen}
-          onToggleDebug={() => setIsDebugOpen(!isDebugOpen)}
-          onOpenHistory={() => setIsHistoryOpen(true)}
-        />
+    <Routes>
+      {/* 🟢 Path หลักป้อนรายงาน (/) */}
+      <Route
+        path="/"
+        element={
+          <div className="min-h-screen bg-gray-50 pb-28 font-sans text-gray-900 flex flex-col justify-between">
+            <div>
+              <Header 
+                onOpenAddSeller={() => setIsAddSellerOpen(true)}
+                isDebugOpen={isDebugOpen}
+                onToggleDebug={() => setIsDebugOpen(!isDebugOpen)}
+                onOpenHistory={() => setIsHistoryOpen(true)}
+              />
 
-        <main className="max-w-md mx-auto p-4">
-          {isDebugOpen && <DbHealthCheck />}
+              {/* ปุ่มลัดสลับไปยัง Route /dashboard */}
+              <div className="max-w-md mx-auto px-4 pt-3 flex justify-end">
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl shadow-2xs active:scale-95 transition-all"
+                >
+                  <BarChart3 size={15} />
+                  <span>ดู Dashboard Real-time</span>
+                </button>
+              </div>
 
-          {loading ? (
-            <Loading />
-          ) : sellers.length === 0 ? (
-            <EmptyState onAddSeller={() => setIsAddSellerOpen(true)} />
-          ) : (
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="sellers-list">
-                {(provided) => (
-                  <div 
-                    {...provided.droppableProps} 
-                    ref={provided.innerRef}
-                    className="space-y-3"
-                  >
-                    {sellers.map((seller, index) => {
-                      const sellerProducts = products.filter(
-                        (p) => String(p.seller_id) === String(seller.id)
-                      );
+              <main className="max-w-md mx-auto p-4">
+                {isDebugOpen && <DbHealthCheck />}
 
-                      return (
-                        <Draggable key={String(seller.id)} draggableId={String(seller.id)} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className={`transition-shadow ${snapshot.isDragging ? 'shadow-lg rounded-2xl z-50 opacity-90' : ''}`}
-                            >
-                              <SellerAccordion
-                                seller={seller}
-                                products={sellerProducts}
-                                onProductChange={handleProductChange}
-                                onDeleteProduct={handleDeleteProductDirectly}
-                                onDeleteSeller={(id) => setDeleteTarget({ type: 'seller', id })}
-                                onOpenAddProduct={(sellerId) => {
-                                  setSelectedSellerId(sellerId);
-                                  setIsAddProductOpen(true);
-                                }}
-                                onUpdateSeller={handleUpdateSeller}
-                                onUpdateProduct={handleUpdateProduct}
-                                dragHandleProps={provided.dragHandleProps}
-                              />
-                            </div>
-                          )}
-                        </Draggable>
-                      );
-                    })}
-                    {provided.placeholder}
-                  </div>
+                {loading ? (
+                  <Loading />
+                ) : sellers.length === 0 ? (
+                  <EmptyState onAddSeller={() => setIsAddSellerOpen(true)} />
+                ) : (
+                  <DragDropContext onDragEnd={handleDragEnd}>
+                    <Droppable droppableId="sellers-list">
+                      {(provided) => (
+                        <div 
+                          {...provided.droppableProps} 
+                          ref={provided.innerRef}
+                          className="space-y-3"
+                        >
+                          {sellers.map((seller, index) => {
+                            const sellerProducts = products.filter(
+                              (p) => String(p.seller_id) === String(seller.id)
+                            );
+
+                            return (
+                              <Draggable key={String(seller.id)} draggableId={String(seller.id)} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    className={`transition-shadow ${snapshot.isDragging ? 'shadow-lg rounded-2xl z-50 opacity-90' : ''}`}
+                                  >
+                                    <SellerAccordion
+                                      seller={seller}
+                                      products={sellerProducts}
+                                      onProductChange={handleProductChange}
+                                      onDeleteProduct={handleDeleteProductDirectly}
+                                      onDeleteSeller={(id) => setDeleteTarget({ type: 'seller', id })}
+                                      onOpenAddProduct={(sellerId) => {
+                                        setSelectedSellerId(sellerId);
+                                        setIsAddProductOpen(true);
+                                      }}
+                                      onUpdateSeller={handleUpdateSeller}
+                                      onUpdateProduct={handleUpdateProduct}
+                                      dragHandleProps={provided.dragHandleProps}
+                                    />
+                                  </div>
+                                )}
+                              </Draggable>
+                            );
+                          })}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
                 )}
-              </Droppable>
-            </DragDropContext>
-          )}
-        </main>
-      </div>
+              </main>
+            </div>
 
-      {/* Footer Version Info */}
-      <footer className="text-center text-xs text-gray-400 font-mono select-none">
-        PX Daily Report System {APP_VERSION}
-      </footer>
+            <footer className="text-center py-4 text-xs text-gray-400 font-mono select-none">
+              PX Daily Report System {APP_VERSION}
+            </footer>
 
-      {sellers.length > 0 && (
-        <BottomBar
-          onGenerate={handleGenerateReport}
-          isCopied={isCopied}
-          isSubmitting={isSubmitting}
-        />
-      )}
+            {sellers.length > 0 && (
+              <BottomBar
+                onGenerate={handleGenerateReport}
+                isCopied={isCopied}
+                isSubmitting={isSubmitting}
+              />
+            )}
 
-      {/* Sheets & Modals */}
-      <AddSellerSheet
-        isOpen={isAddSellerOpen}
-        onClose={() => setIsAddSellerOpen(false)}
-        onAdd={handleAddSeller}
+            {/* Sheets & Modals */}
+            <AddSellerSheet
+              isOpen={isAddSellerOpen}
+              onClose={() => setIsAddSellerOpen(false)}
+              onAdd={handleAddSeller}
+            />
+
+            <AddProductSheet
+              isOpen={isAddProductOpen}
+              onClose={() => setIsAddProductOpen(false)}
+              onAdd={handleAddProduct}
+              sellerId={selectedSellerId}
+            />
+
+            <HistorySheet
+              isOpen={isHistoryOpen}
+              onClose={() => setIsHistoryOpen(false)}
+            />
+
+            <ConfirmDialog
+              isOpen={!!deleteTarget && deleteTarget.type === 'seller'}
+              title="ยืนยันการลบผู้ฝากขาย"
+              message="การลบผู้ฝากขายจะลบได้เฉพาะผู้ฝากขายที่ยังไม่มีประวัติในรายงานย้อนหลังเท่านั้น คุณต้องการลบใช่หรือไม่?"
+              onConfirm={handleConfirmDeleteSeller}
+              onCancel={() => setDeleteTarget(null)}
+            />
+
+            <InstallPWA />
+          </div>
+        }
       />
 
-      <AddProductSheet
-        isOpen={isAddProductOpen}
-        onClose={() => setIsAddProductOpen(false)}
-        onAdd={handleAddProduct}
-        sellerId={selectedSellerId}
+      {/* 🟢 Path แยกสำหรับ Dashboard (/dashboard) */}
+      <Route
+        path="/dashboard"
+        element={<Dashboard onBack={() => navigate('/')} />}
       />
-
-      <HistorySheet
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-      />
-
-      <ConfirmDialog
-        isOpen={!!deleteTarget && deleteTarget.type === 'seller'}
-        title="ยืนยันการลบผู้ฝากขาย"
-        message="การลบผู้ฝากขายจะลบได้เฉพาะผู้ฝากขายที่ยังไม่มีประวัติในรายงานย้อนหลังเท่านั้น คุณต้องการลบใช่หรือไม่?"
-        onConfirm={handleConfirmDeleteSeller}
-        onCancel={() => setDeleteTarget(null)}
-      />
-
-      <InstallPWA />
-    </div>
+    </Routes>
   );
 }

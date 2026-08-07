@@ -1,18 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { ArrowLeftRight, AlertCircle, Trash2 } from 'lucide-react';
 
-export default function ProductCard({ product, onChange, onDelete }) {
+export default function ProductCard({ product, onChange, onDelete, onUpdateProduct }) {
   const [calcMode, setCalcMode] = useState('AUTO_REMAIN');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [name, setName] = useState(product.name || '');
+  const [isSaving, setIsSaving] = useState(false);
+
   const x = useMotionValue(0);
 
-  // เปลี่ยน opacity ของปุ่มลบด้านหลังตามระยะสไลด์ (ลากยิ่งเยอะยิ่งชัด)
+  // เปลี่ยน opacity และ scale ของปุ่มลบด้านหลังตามระยะสไลด์
   const deleteOpacity = useTransform(x, [-120, -40], [1, 0.3]);
   const deleteScale = useTransform(x, [-120, -40], [1.1, 0.8]);
+
+  useEffect(() => {
+    setName(product.name || '');
+  }, [product.name]);
 
   const sentNum = Number(product.sent) || 0;
   const soldNum = Number(product.sold) || 0;
   const remainNum = Number(product.remain) || 0;
+
+  const prevRemain = product.prev_remain !== undefined && product.prev_remain !== null 
+    ? Number(product.prev_remain) 
+    : null;
 
   const isSoldExceeded = product.sent !== '' && product.sold !== '' && soldNum > sentNum;
   const isRemainExceeded = product.sent !== '' && product.remain !== '' && remainNum > sentNum;
@@ -20,7 +32,6 @@ export default function ProductCard({ product, onChange, onDelete }) {
 
   // ตรวจสอบระยะเมื่อปล่อยมือ (Drag End)
   const handleDragEnd = (_, info) => {
-    // ถ้านิ้วสไลด์ไปทางซ้ายเกิน -100px ให้ trigger ฟังก์ชันลบ
     if (info.offset.x < -100) {
       if (onDelete) onDelete(product.id);
     }
@@ -57,6 +68,40 @@ export default function ProductCard({ product, onChange, onDelete }) {
     onChange(product.id, { ...product, remain: val, sold: soldVal });
   };
 
+  const handleSaveName = async () => {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === product.name) {
+      setName(product.name || '');
+      setIsEditingName(false);
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      if (onUpdateProduct) {
+        await onUpdateProduct(product.id, trimmed, product.unit || 'ชิ้น');
+      }
+      setIsEditingName(false);
+    } catch (err) {
+      alert(`แก้ไขชื่อสินค้าไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setName(product.name || '');
+    setIsEditingName(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSaveName();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
   return (
     <div className="relative overflow-hidden rounded-xl mb-3 touch-pan-y">
       {/* พื้นหลังสีแดงฝั่งขวา (แสดงสัญลักษณ์การลบแบบ Shopee) */}
@@ -74,19 +119,76 @@ export default function ProductCard({ product, onChange, onDelete }) {
       <motion.div
         style={{ x }}
         drag="x"
-        dragConstraints={{ left: -150, right: 0 }} // สไลด์ไปทางซ้ายได้
-        dragSnapToOrigin={true} // เด้งกลับตำแหน่งเดิมเสมอเมื่อปล่อยมือ (ถ้าไม่ถึง threshold)
-        dragElastic={{ left: 0.2, right: 0 }} // ความหนืดเวลารูด
+        dragConstraints={{ left: -150, right: 0 }}
+        dragSnapToOrigin={true}
+        dragElastic={{ left: 0.2, right: 0 }}
         onDragEnd={handleDragEnd}
         className={`relative z-10 bg-white p-3 border shadow-sm rounded-xl transition-colors ${
           hasError ? 'border-red-300 bg-red-50/20' : 'border-gray-100'
         }`}
       >
         <div className="flex justify-between items-center mb-2">
-          <span className="font-semibold text-gray-800 text-sm">{product.name}</span>
-          <span className="text-xs text-gray-400">หน่วย : {product.unit || 'ชิ้น'}</span>
+          {/* ชื่อสินค้า - แตะเพื่อแก้ไข Inline Edit */}
+          <div className="flex-1 mr-2 flex items-center gap-1.5">
+            {isEditingName ? (
+              <div className="flex items-center gap-1.5 w-full" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="text"
+                  value={name}
+                  disabled={isSaving}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  style={{ width: `${Math.max(name.length, 3) + 2}ch` }}
+                  className="text-sm font-semibold text-gray-800 bg-blue-50 border-b-2 border-blue-500 focus:outline-none px-1.5 py-0.5 rounded-t-sm transition-all max-w-[160px] disabled:opacity-50"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveName}
+                  disabled={isSaving}
+                  className="bg-green-600 active:bg-green-700 text-white text-[11px] px-1.5 py-0.5 rounded shadow-2xs font-bold disabled:opacity-50"
+                  title="บันทึก"
+                >
+                  {isSaving ? '...' : '✓'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  disabled={isSaving}
+                  className="bg-gray-200 active:bg-gray-300 text-gray-700 text-[11px] px-1.5 py-0.5 rounded font-bold disabled:opacity-50"
+                  title="ยกเลิก"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <span
+                onClick={() => setIsEditingName(true)}
+                className="font-semibold text-gray-800 text-sm cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded transition-colors inline-block"
+                title="แตะเพื่อแก้ไขชื่อสินค้า"
+              >
+                {product.name}
+              </span>
+            )}
+          </div>
+
+          {/* ด้านขวา: ยอดยกมาจากวันก่อน (Badge แสดงผลอย่างเดียว ไม่สามารถกดได้) + หน่วยนับ */}
+          {!isEditingName && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              {prevRemain !== null && (
+                <span className="text-[11px] bg-amber-50 text-amber-700 border border-amber-200/80 px-2 py-0.5 rounded-full font-medium select-none pointer-events-none">
+                  เหลือวันก่อน: <strong className="font-bold">{prevRemain}</strong>
+                </span>
+              )}
+
+              <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
+                หน่วย : {product.unit || 'ชิ้น'}
+              </span>
+            </div>
+          )}
         </div>
 
+        {/* Input Grid 7-Columns */}
         <div className="grid grid-cols-7 gap-1.5 items-center text-center">
           {/* ส่ง */}
           <div className="col-span-2">
@@ -130,7 +232,8 @@ export default function ProductCard({ product, onChange, onDelete }) {
             <button
               type="button"
               onClick={toggleCalcMode}
-              className="p-1.5 rounded-full bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-600 transition-colors"
+              className="p-1.5 rounded-full bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-600 transition-colors active:scale-90"
+              title="สลับโหมดคำนวณอัตโนมัติ (ขาย / เหลือ)"
             >
               <ArrowLeftRight size={14} />
             </button>

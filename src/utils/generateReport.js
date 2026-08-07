@@ -1,37 +1,60 @@
+import { formatDateThai } from './formatDate';
+
 /**
- * สร้างข้อความรายงานประจำวันจากข้อมูล Sellers และ Products ที่ถูกกรอกยอดแล้ว
- * @param {Array} sellers รายชื่อผู้ฝากขาย
- * @param {Array} products รายการสินค้าพร้อมค่ายอด sent, sold, remain
- * @returns {string} ข้อความสรุปสำหรับส่งใน Line
+ * สร้างข้อความรายงานยอดฝากขายประจำวันสำหรับคัดลอกลงไลน์/ข้อความ
+ * (กรองเฉพาะผู้ฝากขายที่มีการลงยอดส่งหรือขายในวันนี้เท่านั้น)
  */
-export const generateReportText = (sellers, products) => {
-  let reportText = `รายงานยอดฝากขายประจำวัน\n\n`;
+export function generateReportText(sellers = [], products = []) {
+  const todayStr = formatDateThai(new Date(), { full: true });
 
-  sellers.forEach((seller) => {
-    const sellerProducts = products.filter((p) => p.seller_id === seller.id);
-    
-    // ถ้าผู้ฝากขายคนนี้มีสินค้า
-    if (sellerProducts.length > 0) {
-      sellerProducts.forEach((prod, index) => {
-        const sent = prod.sent || 0;
-        const sold = prod.sold || 0;
-        // คำนวณคงเหลือ: ถ้าไม่มีค่า remain ส่งมา ให้คำนวณจาก sent - sold
-        const remain = prod.remain !== undefined && prod.remain !== '' ? prod.remain : (sent - sold);
-        const unit = prod.unit || 'ชิ้น';
+  let reportText = `📊 รายงานยอดฝากขายประจำวัน\n📅 ${todayStr}\n------------------------------\n`;
 
-        // แสดงชื่อผู้ฝากขายเฉพาะรายการแรกของคนๆ นั้น (index === 0)
-        const sellerLabel = index === 0 ? ` (${seller.name})` : '';
+  // 🟢 1. กรองเฉพาะผู้ฝากขายที่มีอย่างน้อย 1 รายการสินค้าถูกคีย์ยอด (ส่ง > 0 หรือ ขาย > 0)
+  const activeSellers = sellers.filter((seller) => {
+    const sellerProducts = products.filter(
+      (p) => String(p.seller_id) === String(seller.id)
+    );
 
-        reportText += `${prod.name}${sellerLabel}\n`;
-        reportText += `ส่ง ${sent} ${unit}\n`;
-        reportText += `ขาย ${sold} ${unit}\n`;
-        reportText += `คงเหลือ ${remain} ${unit}\n\n`;
-      });
-    }
+    return sellerProducts.some((p) => {
+      const sentNum = Number(p.sent) || 0;
+      const soldNum = Number(p.sold) || 0;
+      return sentNum > 0 || soldNum > 0;
+    });
   });
 
-  // ต่อท้ายด้วยคำว่า "ครับ" เพียงครั้งเดียวที่บรรทัดสุดท้ายของรายงาน
-  reportText += `ครับ`;
+  // ถ้าไม่มีใครลงยอดเลยในวันนี้
+  if (activeSellers.length === 0) {
+    return `${reportText}\n⚠️ ยังไม่มีการบันทึกยอดฝากขายประจำวันนี้`;
+  }
 
-  return reportText.trim();
-};
+  // 🟢 2. วนลูปสร้างข้อความเฉพาะผู้ฝากขายที่มียอด
+  activeSellers.forEach((seller, index) => {
+    reportText += `\n👤 ${index + 1}. ${seller.name}\n`;
+
+    const sellerProducts = products.filter(
+      (p) => String(p.seller_id) === String(seller.id)
+    );
+
+    // กรองเอาเฉพาะสินค้าที่มีการป้อนยอดส่งหรือขาย
+    const validProducts = sellerProducts.filter((p) => {
+      const sentNum = Number(p.sent) || 0;
+      const soldNum = Number(p.sold) || 0;
+      return sentNum > 0 || soldNum > 0;
+    });
+
+    validProducts.forEach((product) => {
+      const sent = Number(product.sent) || 0;
+      const sold = Number(product.sold) || 0;
+      const remain = product.remain !== undefined && product.remain !== '' 
+        ? Number(product.remain) 
+        : Math.max(0, sent - sold);
+      const unit = product.unit || 'ชิ้น';
+
+      reportText += `   - ${product.name}: ส่ง ${sent} | ขาย ${sold} | เหลือ ${remain} ${unit}\n`;
+    });
+  });
+
+  reportText += `\n------------------------------\n✅ บันทึกรายงานเรียบร้อยแล้ว`;
+
+  return reportText;
+}

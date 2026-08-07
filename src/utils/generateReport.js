@@ -1,53 +1,54 @@
 import { formatDateThai } from './formatDate';
 
 /**
- * สร้างข้อความรายงานยอดฝากขายประจำวันสำหรับคัดลอกลงไลน์/ข้อความ
- * เงื่อนไข:
- * 1. สินค้าที่ส่ง = 0 หรือไม่กรอกยอดส่ง จะถูกตัดออก ไม่นำมาแสดง
- * 2. ผู้ฝากขายคนไหนที่มียอดส่งเป็น 0 ทุกรายการ จะไม่ถูกนำมาแสดงในรายงานเลย
+ * สร้างข้อความรายงานยอดฝากขายประจำวันสำหรับคัดลอก
+ * - จัดกลุ่มเรียงตามรายชื่อผู้ฝากขาย (sellers)
+ * - แสดงชื่อผู้ฝากวงเล็บเฉพาะสินค้า "ตัวแรก" ในกลุ่มของคนนั้นๆ
+ * - ตัดรายการที่ส่งเป็น 0 หรือไม่ส่งออกอัตโนมัติ
  */
 export function generateReportText(sellers = [], products = []) {
   const todayStr = formatDateThai(new Date(), { full: true });
 
-  let reportText = `รายงานยอดฝากขายประจำวัน\n${todayStr}\n\n`;
+  let reportText = `📋 รายงานยอดฝากขายประจำวัน\n📅 วันที่: ${todayStr}\n\n`;
 
-  // สร้าง Map ค้นหาชื่อผู้ฝากขายด้วย seller_id
-  const sellerMap = {};
-  sellers.forEach((s) => {
-    sellerMap[String(s.id)] = s.name;
+  const reportBlocks = [];
+
+  // 🟢 1. วนลูปเรียงตามรายชื่อผู้ฝากขายก่อน
+  sellers.forEach((seller) => {
+    // ดึงเฉพาะสินค้าของผู้ฝากขายคนนี้ที่มีการ "ส่ง" > 0
+    const activeProducts = products.filter((p) => {
+      const isMyProduct = String(p.seller_id) === String(seller.id);
+      const sentNum = Number(p.sent);
+      return isMyProduct && !isNaN(sentNum) && sentNum > 0;
+    });
+
+    // 🟢 2. วนลูปสินค้าของผู้ฝากคนนี้ (ถ้ามี)
+    activeProducts.forEach((product, idx) => {
+      const sent = Number(product.sent) || 0;
+      const sold = Number(product.sold) || 0;
+      const remain = product.remain !== undefined && product.remain !== '' 
+        ? Number(product.remain) 
+        : Math.max(0, sent - sold);
+      const unit = product.unit || 'ชิ้น';
+
+      // 🟢 3. แสดงชื่อผู้ฝากเฉพาะสินค้าตัวแรกของกลุ่ม (idx === 0)
+      const titleLine = idx === 0 
+        ? `${product.name} (${seller.name})` 
+        : `${product.name}`;
+
+      let itemText = `${titleLine}\n`;
+      itemText += `ส่ง ${sent} ${unit}\n`;
+      itemText += `ขาย ${sold} ${unit}\n`;
+      itemText += `คงเหลือ ${remain} ${unit}`;
+
+      reportBlocks.push(itemText);
+    });
   });
 
-  // 🟢 1. กรองเฉพาะรายการสินค้าที่มีการ "ส่ง" มากกว่า 0 เท่านั้น (sent > 0)
-  const activeProducts = products.filter((p) => {
-    const sentNum = Number(p.sent);
-    return !isNaN(sentNum) && sentNum > 0;
-  });
-
-  // 🟢 2. ถ้าวันนี้ไม่มีสินค้าชิ้นไหนส่งเลย (หรือทุกคนส่งเป็น 0 หมด)
-  if (activeProducts.length === 0) {
+  // กรณีไม่มีการฝากส่งสินค้าเลยในวันนี้
+  if (reportBlocks.length === 0) {
     return `${reportText}⚠️ ไม่มีรายการสินค้าฝากส่งในวันนี้`;
   }
 
-  // 🟢 3. แสดงเฉพาะรายการสินค้าที่ส่ง > 0 (ทำให้คนที่ไม่ส่งอะไรเลย หรือส่ง 0 ชิ้น หายไปโดยอัตโนมัติ)
-  activeProducts.forEach((product, index) => {
-    const sellerName = sellerMap[String(product.seller_id)] || 'ไม่ระบุผู้ฝาก';
-    const sent = Number(product.sent) || 0;
-    const sold = Number(product.sold) || 0;
-    const remain = product.remain !== undefined && product.remain !== '' 
-      ? Number(product.remain) 
-      : Math.max(0, sent - sold);
-    const unit = product.unit || 'ชิ้น';
-
-    reportText += `${product.name} (${sellerName})\n`;
-    reportText += `ส่ง ${sent} ${unit}\n`;
-    reportText += `ขาย ${sold} ${unit}\n`;
-    reportText += `คงเหลือ ${remain} ${unit}\n`;
-
-    // เว้นบรรทัดระหว่างรายการสินค้า
-    if (index < activeProducts.length - 1) {
-      reportText += `\n`;
-    }
-  });
-
-  return reportText.trim();
+  return reportText + reportBlocks.join('\n\n');
 }

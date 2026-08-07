@@ -301,7 +301,6 @@ export default function App() {
 
   return (
     <Routes>
-      {/* 🟢 Path หลักป้อนรายงาน (/) */}
       <Route
         path="/"
         element={
@@ -314,7 +313,6 @@ export default function App() {
                 onOpenHistory={() => setIsHistoryOpen(true)}
               />
 
-              {/* ปุ่มลัดสลับไปยัง Route /dashboard */}
               <div className="max-w-md mx-auto px-4 pt-3 flex justify-end">
                 <button
                   onClick={() => navigate('/dashboard')}
@@ -394,7 +392,6 @@ export default function App() {
               />
             )}
 
-            {/* Sheets & Modals */}
             <AddSellerSheet
               isOpen={isAddSellerOpen}
               onClose={() => setIsAddSellerOpen(false)}
@@ -426,7 +423,6 @@ export default function App() {
         }
       />
 
-      {/* 🟢 Path แยกสำหรับ Dashboard (/dashboard) */}
       <Route
         path="/dashboard"
         element={<Dashboard onBack={() => navigate('/')} />}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { GripVertical, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import ProductCard from './ProductCard';
 
 export default function SellerAccordion({ 
@@ -10,9 +11,10 @@ export default function SellerAccordion({
   onDeleteSeller,
   onOpenAddProduct,
   onUpdateSeller,
-  onUpdateProduct
+  onUpdateProduct,
+  dragHandleProps
 }) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [name, setName] = useState(seller.name || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -58,9 +60,18 @@ export default function SellerAccordion({
       {/* Header */}
       <div 
         onClick={() => !isEditingName && setIsOpen(!isOpen)}
-        className="flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-gray-100 cursor-pointer select-none"
+        className="flex justify-between items-center px-3 py-3 bg-gray-50 border-b border-gray-100 cursor-pointer select-none"
       >
-        <div className="flex items-center gap-2 flex-1 mr-2" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1.5 flex-1 mr-2" onClick={(e) => e.stopPropagation()}>
+          {/* 🟢 ปุ่ม Grip สำหรับแตะลากสลับลำดับ */}
+          <div 
+            {...dragHandleProps}
+            className="p-1 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing touch-none shrink-0"
+            title="ลากเพื่อเปลี่ยนลำดับ"
+          >
+            <GripVertical size={18} />
+          </div>
+
           {!isEditingName && (
             <motion.span 
               onClick={() => setIsOpen(!isOpen)}
@@ -68,9 +79,7 @@ export default function SellerAccordion({
               transition={{ duration: 0.2 }}
               className="text-gray-400 cursor-pointer shrink-0"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDown size={18} />
             </motion.span>
           )}
 
@@ -84,7 +93,7 @@ export default function SellerAccordion({
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={handleKeyDown}
                 style={{ width: `${Math.max(name.length, 3) + 2}ch` }}
-                className="text-base font-bold text-gray-800 bg-blue-50 border-b-2 border-blue-500 focus:outline-none px-1.5 py-0.5 rounded-t-sm transition-all max-w-[180px] disabled:opacity-50"
+                className="text-base font-bold text-gray-800 bg-blue-50 border-b-2 border-blue-500 focus:outline-none px-1.5 py-0.5 rounded-t-sm transition-all max-w-[170px] disabled:opacity-50"
                 autoFocus
               />
               <button
@@ -109,7 +118,7 @@ export default function SellerAccordion({
           ) : (
             <h2 
               onClick={() => setIsEditingName(true)}
-              className="font-bold text-gray-800 text-base hover:bg-gray-200/60 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+              className="font-bold text-gray-800 text-base hover:bg-gray-200/60 px-1.5 py-0.5 rounded transition-colors cursor-pointer truncate max-w-[150px]"
               title="แตะเพื่อแก้ไขชื่อผู้ฝากขาย"
             >
               {seller.name}
@@ -124,21 +133,20 @@ export default function SellerAccordion({
         </div>
 
         {!isEditingName && (
-          <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => onOpenAddProduct(seller.id)}
-              className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-0.5 bg-blue-50 px-2.5 py-1.5 rounded-lg active:bg-blue-100"
+              className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 bg-blue-50 px-2.5 py-1.5 rounded-lg active:bg-blue-100"
             >
-              + เพิ่มสินค้า
+              <Plus size={14} />
+              <span>เพิ่มสินค้า</span>
             </button>
             <button
               onClick={() => onDeleteSeller(seller.id)}
-              className="text-gray-400 hover:text-red-500 p-1 rounded-md"
+              className="text-gray-400 hover:text-red-500 p-1.5 rounded-md transition-colors"
               title="ลบผู้ฝากขาย"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+              <Trash2 size={16} />
             </button>
           </div>
         )}

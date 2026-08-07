@@ -1,6 +1,7 @@
 import sql from '../lib/neon';
 
-export const getProducts = async () => {
+// ดึงข้อมูลสินค้าทั้งหมด
+export async function getProducts() {
   try {
     const data = await sql`
       SELECT * FROM products 
@@ -11,32 +12,58 @@ export const getProducts = async () => {
     console.error('Error fetching products:', error);
     throw error;
   }
-};
+}
 
-export const createProduct = async (sellerId, name, unit = 'ชิ้น', sortOrder = 0) => {
+// เพิ่มสินค้าใหม่
+export async function createProduct(sellerId, name, unit = 'ชิ้น', sortOrder = 0) {
   try {
-    const data = await sql`
+    const result = await sql`
       INSERT INTO products (seller_id, name, unit, sort_order) 
-      VALUES (${sellerId}, ${name}, ${unit}, ${sortOrder}) 
+      VALUES (${Number(sellerId)}, ${name}, ${unit}, ${Number(sortOrder)}) 
       RETURNING *
     `;
-    return data[0];
+    return result[0];
   } catch (error) {
     console.error('Error creating product:', error);
     throw error;
   }
-};
+}
 
-export const deleteProduct = async (id) => {
+// อัปเดตชื่อสินค้าและหน่วยนับ
+export async function updateProduct(id, name, unit) {
   try {
-    // 1. ลบประวัติในตาราง reports ที่อ้างอิง product_id นี้ก่อน
-    await sql`DELETE FROM reports WHERE product_id = ${id}`;
+    const result = await sql`
+      UPDATE products 
+      SET name = ${name}, unit = ${unit} 
+      WHERE id = ${Number(id)}
+      RETURNING *
+    `;
+    return result[0];
+  } catch (error) {
+    console.error('Error updating product:', error);
+    throw error;
+  }
+}
 
-    // 2. ลบสินค้าออกจากตาราง products
-    await sql`DELETE FROM products WHERE id = ${id}`;
+// ลบสินค้า (เช็กก่อนว่ามีประวัติรายงานหรือไม่)
+export async function deleteProduct(id) {
+  try {
+    const productId = Number(id);
+
+    // 1. เช็กว่าสินค้านี้เคยมีประวัติบันทึกในรายงานหรือไม่
+    const checkReport = await sql`
+      SELECT COUNT(*) FROM reports WHERE product_id = ${productId}
+    `;
+
+    if (Number(checkReport[0].count) > 0) {
+      throw new Error('ไม่สามารถลบได้ เนื่องจากสินค้านี้มีประวัติรายงานย้อนหลังในระบบแล้ว (แนะนำให้ใช้การแก้ไขชื่อแทน)');
+    }
+
+    // 2. ถ้าไม่มีประวัติ จึงยอมให้ลบออกจากตาราง products
+    await sql`DELETE FROM products WHERE id = ${productId}`;
     return true;
   } catch (error) {
     console.error('Error deleting product:', error);
     throw error;
   }
-};
+}

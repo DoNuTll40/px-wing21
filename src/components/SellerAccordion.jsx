@@ -1,108 +1,172 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProductCard from './ProductCard';
-import { GripVertical, ChevronDown, Trash2 } from 'lucide-react';
 
-export default function SellerAccordion({
-  seller,
-  products,
-  onProductChange,
-  onDeleteProduct,
+export default function SellerAccordion({ 
+  seller, 
+  products, 
+  onProductChange, 
+  onDeleteProduct, 
   onDeleteSeller,
   onOpenAddProduct,
-  dragHandleProps
+  onUpdateSeller,
+  onUpdateProduct
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [name, setName] = useState(seller.name || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setName(seller.name || '');
+  }, [seller.name]);
+
+  const handleSaveName = async () => {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === seller.name) {
+      setName(seller.name || '');
+      setIsEditingName(false);
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await onUpdateSeller(seller.id, trimmed);
+      setIsEditingName(false);
+    } catch (err) {
+      alert(`แก้ไขชื่อไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setName(seller.name || '');
+    setIsEditingName(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSaveName();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      {/* Header ของ Accordion */}
+    <div className="bg-white border border-gray-200 rounded-2xl mb-3 shadow-xs overflow-hidden">
+      {/* Header */}
       <div 
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between p-3.5 cursor-pointer select-none bg-white hover:bg-gray-50/50 transition-colors"
+        onClick={() => !isEditingName && setIsOpen(!isOpen)}
+        className="flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-gray-100 cursor-pointer select-none"
       >
-        <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-2">
-          {/* Grip Icon สำหรับ Drag & Drop */}
-          <div
-            {...dragHandleProps}
-            onClick={(e) => e.stopPropagation()}
-            className="p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none shrink-0"
-            title="กดค้างเพื่อลากสลับลำดับ"
-          >
-            <GripVertical size={18} />
+        <div className="flex items-center gap-2 flex-1 mr-2" onClick={(e) => e.stopPropagation()}>
+          {!isEditingName && (
+            <motion.span 
+              onClick={() => setIsOpen(!isOpen)}
+              animate={{ rotate: isOpen ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="text-gray-400 cursor-pointer shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </motion.span>
+          )}
+
+          {/* ชื่อผู้ฝากขาย - Inline Edit */}
+          {isEditingName ? (
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="text"
+                value={name}
+                disabled={isSaving}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={handleKeyDown}
+                style={{ width: `${Math.max(name.length, 3) + 2}ch` }}
+                className="text-base font-bold text-gray-800 bg-blue-50 border-b-2 border-blue-500 focus:outline-none px-1.5 py-0.5 rounded-t-sm transition-all max-w-[180px] disabled:opacity-50"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleSaveName}
+                disabled={isSaving}
+                className="bg-green-600 active:bg-green-700 text-white text-xs px-2 py-1 rounded-md shadow-2xs font-bold disabled:opacity-50"
+                title="บันทึก"
+              >
+                {isSaving ? '...' : '✓'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                disabled={isSaving}
+                className="bg-gray-200 active:bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded-md font-bold disabled:opacity-50"
+                title="ยกเลิก"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <h2 
+              onClick={() => setIsEditingName(true)}
+              className="font-bold text-gray-800 text-base hover:bg-gray-200/60 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+              title="แตะเพื่อแก้ไขชื่อผู้ฝากขาย"
+            >
+              {seller.name}
+            </h2>
+          )}
+
+          {!isEditingName && (
+            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full shrink-0">
+              {products.length} รายการ
+            </span>
+          )}
+        </div>
+
+        {!isEditingName && (
+          <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => onOpenAddProduct(seller.id)}
+              className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-0.5 bg-blue-50 px-2.5 py-1.5 rounded-lg active:bg-blue-100"
+            >
+              + เพิ่มสินค้า
+            </button>
+            <button
+              onClick={() => onDeleteSeller(seller.id)}
+              className="text-gray-400 hover:text-red-500 p-1 rounded-md"
+              title="ลบผู้ฝากขาย"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
           </div>
-
-          <span className={`text-gray-400 text-xs transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180' : ''}`}>
-            <ChevronDown size={16} />
-          </span>
-
-          <h3 className="font-bold text-gray-800 text-sm truncate">
-            {seller.name}
-          </h3>
-
-          <span className="text-[11px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
-            {products.length} รายการ
-          </span>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => onOpenAddProduct(seller.id)}
-            className="text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-xl transition-colors"
-          >
-            + เพิ่มสินค้า
-          </button>
-          <button
-            type="button"
-            onClick={() => onDeleteSeller(seller.id)}
-            className="p-1.5 text-red-400 hover:text-red-500 rounded-lg transition-colors"
-            title="ลบผู้ฝากขาย"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
+        )}
       </div>
 
-      {/* 🟢 ส่วนเนื้อหาพร้อม Animation ยุบขยาย และ Exit Animation เมื่อลบสินค้า */}
+      {/* Content */}
       <AnimatePresence initial={false}>
         {isOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="overflow-hidden bg-gray-50/30 border-t border-gray-50"
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
           >
-            <div className="p-3 pt-1 space-y-2">
+            <div className="p-3 bg-gray-50/50">
               {products.length === 0 ? (
-                <p className="text-center text-xs text-gray-400 py-3">ยังไม่มีรายการสินค้า</p>
+                <p className="text-xs text-center text-gray-400 py-3">ยังไม่มีสินค้า กด "+ เพิ่มสินค้า" ด้านบน</p>
               ) : (
-                /* 🟢 ครอบ AnimatePresence ที่รายการสินค้า เพื่อให้สินค้าลบแบบลื่นๆ */
-                <AnimatePresence mode="popLayout">
-                  {products.map((product) => (
-                    <motion.div
-                      key={product.id}
-                      layout // ทำให้รายการอื่นเขยิบขึ้นมาแบบลื่นไหล
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ 
-                        opacity: 0, 
-                        x: -120, // สไลด์ไปทางซ้ายตามทิศทางที่ปัดลบ
-                        height: 0, 
-                        marginBottom: 0,
-                        transition: { duration: 0.22, ease: 'easeOut' } 
-                      }}
-                    >
-                      <ProductCard
-                        product={product}
-                        onChange={onProductChange}
-                        onDelete={onDeleteProduct}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+                products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onChange={onProductChange}
+                    onDelete={onDeleteProduct}
+                    onUpdateProduct={onUpdateProduct}
+                  />
+                ))
               )}
             </div>
           </motion.div>

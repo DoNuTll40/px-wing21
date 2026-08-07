@@ -15,15 +15,22 @@ import InstallPWA from './components/InstallPWA';
 import { 
   getSellers, 
   createSeller, 
+  updateSeller,
   deleteSeller, 
   updateSellersSortOrder 
 } from './services/sellerService';
-import { getProducts, createProduct, deleteProduct } from './services/productService';
+import { 
+  getProducts, 
+  createProduct, 
+  updateProduct,
+  deleteProduct 
+} from './services/productService';
 import { saveDailyReport } from './services/reportService';
 import { generateReportText } from './utils/generateReport';
 import { copyToClipboard } from './utils/clipboard';
 
 const DRAFT_STORAGE_KEY = 'px_report_draft_values';
+const APP_VERSION = 'v1.2.0';
 
 export default function App() {
   const [sellers, setSellers] = useState([]);
@@ -155,6 +162,21 @@ export default function App() {
     }
   };
 
+  // 🟢 อัปเดตชื่อผู้ฝากขาย (Inline Edit)
+  const handleUpdateSeller = async (id, name) => {
+    try {
+      const updated = await updateSeller(id, name);
+      if (updated) {
+        setSellers((prev) =>
+          prev.map((s) => (String(s.id) === String(id) ? { ...s, name: updated.name } : s))
+        );
+      }
+    } catch (err) {
+      console.error('handleUpdateSeller error:', err);
+      throw err;
+    }
+  };
+
   const handleAddProduct = async (sellerId, name, unit) => {
     try {
       const sellerProducts = products.filter((p) => String(p.seller_id) === String(sellerId));
@@ -162,6 +184,25 @@ export default function App() {
       setProducts((prev) => [...prev, { ...newProduct, sent: '', sold: '', remain: '' }]);
     } catch (err) {
       alert('เกิดข้อผิดพลาดในการเพิ่มสินค้า');
+    }
+  };
+
+  // 🟢 อัปเดตชื่อสินค้า/หน่วยนับ (Inline Edit)
+  const handleUpdateProduct = async (id, name, unit) => {
+    try {
+      const updated = await updateProduct(id, name, unit);
+      if (updated) {
+        setProducts((prev) =>
+          prev.map((p) =>
+            String(p.id) === String(id)
+              ? { ...p, name: updated.name, unit: updated.unit }
+              : p
+          )
+        );
+      }
+    } catch (err) {
+      console.error('handleUpdateProduct error:', err);
+      throw err;
     }
   };
 
@@ -173,7 +214,7 @@ export default function App() {
       await deleteProduct(productId);
     } catch (err) {
       console.error('Delete product error:', err);
-      alert('เกิดข้อผิดพลาดในการลบสินค้า');
+      alert(err.message || 'เกิดข้อผิดพลาดในการลบสินค้า');
       setProducts(previousProducts);
     }
   };
@@ -189,7 +230,7 @@ export default function App() {
       }
     } catch (err) {
       console.error('Delete seller error:', err);
-      alert('เกิดข้อผิดพลาดในการลบข้อมูลผู้ฝากขาย');
+      alert(err.message || 'เกิดข้อผิดพลาดในการลบข้อมูลผู้ฝากขาย');
     } finally {
       setDeleteTarget(null);
     }
@@ -240,67 +281,76 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-900">
-      <Header 
-        onOpenAddSeller={() => setIsAddSellerOpen(true)}
-        isDebugOpen={isDebugOpen}
-        onToggleDebug={() => setIsDebugOpen(!isDebugOpen)}
-        onOpenHistory={() => setIsHistoryOpen(true)}
-      />
+    <div className="min-h-screen bg-gray-50 pb-28 font-sans text-gray-900 flex flex-col justify-between">
+      <div>
+        <Header 
+          onOpenAddSeller={() => setIsAddSellerOpen(true)}
+          isDebugOpen={isDebugOpen}
+          onToggleDebug={() => setIsDebugOpen(!isDebugOpen)}
+          onOpenHistory={() => setIsHistoryOpen(true)}
+        />
 
-      <main className="max-w-md mx-auto p-4">
-        {isDebugOpen && <DbHealthCheck />}
+        <main className="max-w-md mx-auto p-4">
+          {isDebugOpen && <DbHealthCheck />}
 
-        {loading ? (
-          <Loading />
-        ) : sellers.length === 0 ? (
-          <EmptyState onAddSeller={() => setIsAddSellerOpen(true)} />
-        ) : (
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="sellers-list">
-              {(provided) => (
-                <div 
-                  {...provided.droppableProps} 
-                  ref={provided.innerRef}
-                  className="space-y-3"
-                >
-                  {sellers.map((seller, index) => {
-                    const sellerProducts = products.filter(
-                      (p) => String(p.seller_id) === String(seller.id)
-                    );
+          {loading ? (
+            <Loading />
+          ) : sellers.length === 0 ? (
+            <EmptyState onAddSeller={() => setIsAddSellerOpen(true)} />
+          ) : (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="sellers-list">
+                {(provided) => (
+                  <div 
+                    {...provided.droppableProps} 
+                    ref={provided.innerRef}
+                    className="space-y-3"
+                  >
+                    {sellers.map((seller, index) => {
+                      const sellerProducts = products.filter(
+                        (p) => String(p.seller_id) === String(seller.id)
+                      );
 
-                    return (
-                      <Draggable key={String(seller.id)} draggableId={String(seller.id)} index={index}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className={`transition-shadow ${snapshot.isDragging ? 'shadow-lg rounded-2xl z-50 opacity-90' : ''}`}
-                          >
-                            <SellerAccordion
-                              seller={seller}
-                              products={sellerProducts}
-                              onProductChange={handleProductChange}
-                              onDeleteProduct={handleDeleteProductDirectly}
-                              onDeleteSeller={(id) => setDeleteTarget({ type: 'seller', id })}
-                              onOpenAddProduct={(sellerId) => {
-                                setSelectedSellerId(sellerId);
-                                setIsAddProductOpen(true);
-                              }}
-                              dragHandleProps={provided.dragHandleProps}
-                            />
-                          </div>
-                        )}
-                      </Draggable>
-                    );
-                  })}
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </DragDropContext>
-        )}
-      </main>
+                      return (
+                        <Draggable key={String(seller.id)} draggableId={String(seller.id)} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`transition-shadow ${snapshot.isDragging ? 'shadow-lg rounded-2xl z-50 opacity-90' : ''}`}
+                            >
+                              <SellerAccordion
+                                seller={seller}
+                                products={sellerProducts}
+                                onProductChange={handleProductChange}
+                                onDeleteProduct={handleDeleteProductDirectly}
+                                onDeleteSeller={(id) => setDeleteTarget({ type: 'seller', id })}
+                                onOpenAddProduct={(sellerId) => {
+                                  setSelectedSellerId(sellerId);
+                                  setIsAddProductOpen(true);
+                                }}
+                                onUpdateSeller={handleUpdateSeller}
+                                onUpdateProduct={handleUpdateProduct}
+                                dragHandleProps={provided.dragHandleProps}
+                              />
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          )}
+        </main>
+      </div>
+
+      {/* Footer Version Info */}
+      <footer className="text-center text-xs text-gray-400 font-mono select-none">
+        PX Daily Report System {APP_VERSION}
+      </footer>
 
       {sellers.length > 0 && (
         <BottomBar
@@ -332,7 +382,7 @@ export default function App() {
       <ConfirmDialog
         isOpen={!!deleteTarget && deleteTarget.type === 'seller'}
         title="ยืนยันการลบผู้ฝากขาย"
-        message="การลบผู้ฝากขายจะทำการลบสินค้าทั้งหมดของผู้ฝากคนนี้ด้วย คุณต้องการลบใช่หรือไม่?"
+        message="การลบผู้ฝากขายจะลบได้เฉพาะผู้ฝากขายที่ยังไม่มีประวัติในรายงานย้อนหลังเท่านั้น คุณต้องการลบใช่หรือไม่?"
         onConfirm={handleConfirmDeleteSeller}
         onCancel={() => setDeleteTarget(null)}
       />

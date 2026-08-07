@@ -9,7 +9,7 @@ import { formatDateThai } from './formatDate';
 export function generateReportText(sellers = [], products = []) {
   const todayStr = formatDateThai(new Date(), { full: true });
 
-  let reportText = `รายงานยอดฝากขายประจำวัน\n วันที่: ${todayStr}\n\n`;
+  let reportText = `รายงานยอดฝากขายประจำวัน\n${todayStr}\n\n`;
 
   // สร้าง Map ค้นหาชื่อผู้ฝากขายด้วย seller_id
   const sellerMap = {};

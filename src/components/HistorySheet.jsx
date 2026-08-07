@@ -15,6 +15,7 @@ import {
 import { getReportHistoryGrouped } from '../services/historyService';
 import { deleteDailyReportByDate } from '../services/reportService';
 import { formatDateThai } from '../utils/formatDate';
+import { generateReportText } from '../utils/generateReport';
 import { copyToClipboard } from '../utils/clipboard';
 import AdminPinModal from './AdminPinModal';
 
@@ -75,36 +76,41 @@ export default function HistorySheet({ isOpen, onClose }) {
     setOpenDates((prev) => ({ ...prev, [date]: !prev[date] }));
   };
 
-  // 🟢 แก้ไข Logic การสลับสถานะเปิด-ปิดจ่า เพื่อให้กดครั้งแรกแล้วพับปิดได้ทันที
   const toggleSeller = (key) => {
     setOpenSellers((prev) => {
-      const isCurrentlyOpen = prev[key] !== false; // ถ้า undefined ให้ถือว่าเปิดอยู่ (true)
-      return { ...prev, [key]: !isCurrentlyOpen }; // สลับเป็น false ตั้งแต่คลิกแรก
+      const isCurrentlyOpen = prev[key] !== false;
+      return { ...prev, [key]: !isCurrentlyOpen };
     });
   };
 
-  const handleCopyReportByDate = async (date, sellers, e) => {
+  // 🟢 ปรับให้แปลงข้อมูลจาก History มาใช้ generateReportText ร่วมกัน
+  const handleCopyReportByDate = async (date, sellersGroup, e) => {
     e.stopPropagation();
 
-    let reportText = `📋 **รายงานยอดฝากขายประจำวัน**\n`;
-    reportText += `📅 วันที่: ${formatDateThai(date, { full: true })}\n`;
-    reportText += `------------------------------------\n\n`;
+    // แปลงโครงสร้างข้อมูลจาก History ให้เข้ากับ generateReportText
+    const sellersList = [];
+    const productsList = [];
 
-    Object.entries(sellers).forEach(([sellerName, products]) => {
+    Object.entries(sellersGroup).forEach(([sellerName, products], index) => {
+      const sellerId = index + 1;
+      sellersList.push({ id: sellerId, name: sellerName });
+
       products.forEach((prod) => {
-        const sent = prod.sent || 0;
-        const sold = prod.sold || 0;
-        const remain = prod.remain !== undefined ? prod.remain : (sent - sold);
-        const unit = prod.unit || 'ชิ้น';
-
-        reportText += `${prod.product_name} (${sellerName})\n`;
-        reportText += `ส่ง ${sent} ${unit}\n`;
-        reportText += `ขาย ${sold} ${unit}\n`;
-        reportText += `คงเหลือ ${remain} ${unit}\n\n`;
+        productsList.push({
+          seller_id: sellerId,
+          name: prod.product_name,
+          sent: prod.sent,
+          sold: prod.sold,
+          remain: prod.remain,
+          unit: prod.unit
+        });
       });
     });
 
-    const success = await copyToClipboard(reportText.trim());
+    // เรียกใช้ utils สรรสร้างข้อความรายงาน
+    const reportText = generateReportText(sellersList, productsList);
+
+    const success = await copyToClipboard(reportText);
     if (success) {
       setCopiedDate(date);
       setTimeout(() => setCopiedDate(null), 2500);

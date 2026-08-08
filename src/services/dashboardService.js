@@ -3,7 +3,7 @@ import { getTodayThaiDate } from './reportService';
 
 /**
  * ดึงข้อมูลสถิติมุมมอง Dashboard ณ เวลาปัจจุบัน
- * (สินค้ายอดนิยมคำนวณถ่วงน้ำหนัก Weighted Score: ยอดขาย * อัตราการขายได้ %)
+ * (สินค้ายอดนิยมคำนวณ Weighted Score: ยอดขาย * (ยอดขาย / ยอดส่ง))
  */
 export const getDashboardAnalytics = async () => {
   const today = getTodayThaiDate();
@@ -78,7 +78,7 @@ export const getDashboardAnalytics = async () => {
       }
     });
 
-    // 4. สินค้าขายดีที่สุด 5 อันดับแรก (แปลงชนิดข้อมูลเป็น numeric ป้องกัน Integer Division)
+    // 4. สินค้าขายดีที่สุด 5 อันดับแรก (แก้ไขการ CAST numeric เพื่อป้องกัน Integer Division 0)
     const topProducts = await sql`
       SELECT 
         p.name AS product_name,
@@ -87,12 +87,12 @@ export const getDashboardAnalytics = async () => {
         r.sent,
         r.sold,
         r.remain,
-        ROUND((r.sold::numeric / NULLIF(r.sent, 0)::numeric) * 100) AS sell_rate
+        ROUND((CAST(r.sold AS numeric) / NULLIF(CAST(r.sent AS numeric), 0)) * 100) AS sell_rate
       FROM reports r
       JOIN products p ON r.product_id = p.id
       JOIN sellers s ON r.seller_id = s.id
       WHERE r.report_date = ${today}::date AND r.sold > 0
-      ORDER BY (r.sold::numeric * (r.sold::numeric / NULLIF(r.sent, 0)::numeric)) DESC
+      ORDER BY (CAST(r.sold AS numeric) * (CAST(r.sold AS numeric) / NULLIF(CAST(r.sent AS numeric), 0))) DESC
       LIMIT 5
     `;
 

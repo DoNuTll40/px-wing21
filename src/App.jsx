@@ -32,7 +32,6 @@ import { saveDailyReport, getTodayReport, getLatestPreviousReports } from './ser
 import { generateReportText } from './utils/generateReport';
 import { copyToClipboard } from './utils/clipboard';
 
-const DRAFT_STORAGE_KEY = 'px_report_draft_values';
 const APP_VERSION = 'v1.5.0';
 
 export default function App() {
@@ -50,9 +49,11 @@ export default function App() {
 
   const [deleteTarget, setDeleteTarget] = useState(null);
 
+  const [isSaved, setIsSaved] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 🟢 ดึงข้อมูลสดจาก Neon DB เท่านั้น (ไม่ผ่าน localStorage แล้ว)
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -78,38 +79,15 @@ export default function App() {
         prevReportMap[String(item.product_id)] = item.prev_remain;
       });
 
-      let savedDrafts = {};
-      try {
-        const localData = localStorage.getItem(DRAFT_STORAGE_KEY);
-        if (localData) {
-          savedDrafts = JSON.parse(localData);
-        }
-      } catch (e) {
-        console.error('Error reading draft from localStorage:', e);
-      }
-
       const formattedProducts = (productData || []).map((p) => {
         const pIdStr = String(p.id);
-        const draft = savedDrafts[pIdStr] || {};
         const todayDbItem = todayReportMap[pIdStr];
-
-        const sentVal = draft.sent !== undefined 
-          ? draft.sent 
-          : (todayDbItem ? todayDbItem.sent : '');
-          
-        const soldVal = draft.sold !== undefined 
-          ? draft.sold 
-          : (todayDbItem ? todayDbItem.sold : '');
-
-        const remainVal = draft.remain !== undefined 
-          ? draft.remain 
-          : (todayDbItem ? todayDbItem.remain : '');
 
         return {
           ...p,
-          sent: sentVal,
-          sold: soldVal,
-          remain: remainVal,
+          sent: todayDbItem ? todayDbItem.sent : '',
+          sold: todayDbItem ? todayDbItem.sold : '',
+          remain: todayDbItem ? todayDbItem.remain : '',
           prev_remain: prevReportMap[pIdStr] !== undefined ? prevReportMap[pIdStr] : null
         };
       });
@@ -126,35 +104,10 @@ export default function App() {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    if (loading || products.length === 0) return;
-
-    const draftMap = {};
-    let hasDraftData = false;
-
-    products.forEach((p) => {
-      if (p.sent !== '' || p.sold !== '') {
-        draftMap[String(p.id)] = {
-          sent: p.sent,
-          sold: p.sold,
-          remain: p.remain
-        };
-        hasDraftData = true;
-      }
-    });
-
-    if (hasDraftData) {
-      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftMap));
-    } else {
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
-    }
-  }, [products, loading]);
-
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
 
     const previousSellers = [...sellers];
-
     const reorderedSellers = Array.from(sellers);
     const [movedSeller] = reorderedSellers.splice(result.source.index, 1);
     reorderedSellers.splice(result.destination.index, 0, movedSeller);
@@ -262,6 +215,35 @@ export default function App() {
     }
   };
 
+  // 🟢 1. บันทึกข้อมูลลง DB อย่างเดียว
+  const handleSaveOnly = async () => {
+    if (sellers.length === 0) {
+      alert('ยังไม่มีข้อมูลผู้ฝากขาย');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const reportItems = products.map((p) => ({
+        seller_id: p.seller_id,
+        product_id: p.id,
+        sent: p.sent,
+        sold: p.sold,
+        remain: p.remain
+      }));
+
+      await saveDailyReport(reportItems);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2500);
+    } catch (err) {
+      console.error('Failed to save report:', err);
+      alert(`เกิดข้อผิดพลาดในการบันทึกรายงาน: ${err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ Database'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 🟢 2. บันทึกข้อมูลลง DB + คัดลอกรายงาน
   const handleGenerateReport = async () => {
     if (sellers.length === 0) {
       alert('ยังไม่มีข้อมูลผู้ฝากขาย');
@@ -270,7 +252,6 @@ export default function App() {
 
     try {
       setIsSubmitting(true);
-
       const reportItems = products.map((p) => ({
         seller_id: p.seller_id,
         product_id: p.id,
@@ -282,11 +263,10 @@ export default function App() {
       await saveDailyReport(reportItems);
 
       const reportText = generateReportText(sellers, products);
-
       const success = await copyToClipboard(reportText);
+
       if (success) {
         setIsCopied(true);
-        localStorage.removeItem(DRAFT_STORAGE_KEY);
         setTimeout(() => setIsCopied(false), 3000);
       } else {
         alert('บันทึกข้อมูลเรียบร้อยแล้ว (ไม่สามารถคัดลอกข้อความอัตโนมัติได้)');
@@ -386,7 +366,9 @@ export default function App() {
 
             {sellers.length > 0 && (
               <BottomBar
+                onSave={handleSaveOnly}
                 onGenerate={handleGenerateReport}
+                isSaved={isSaved}
                 isCopied={isCopied}
                 isSubmitting={isSubmitting}
               />

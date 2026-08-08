@@ -1,33 +1,64 @@
 import React from 'react';
+import { Save, Copy, Check, Loader2 } from 'lucide-react';
 
-export default function BottomBar({ onGenerate, isCopied, isSubmitting }) {
+export default function BottomBar({ 
+  onSave, 
+  onGenerate, 
+  isSaved, 
+  isCopied, 
+  isSubmitting 
+}) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 p-4 shadow-lg z-10">
-      <div className="max-w-md mx-auto">
+    <div className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-3 z-40 shadow-lg">
+      <div className="max-w-md mx-auto flex items-center gap-2">
+        {/* 1. ปุ่มบันทึกข้อมูลอย่างเดียว */}
         <button
-          onClick={onGenerate}
+          type="button"
+          onClick={onSave}
           disabled={isSubmitting}
-          className={`w-full h-12 flex items-center justify-center gap-2 font-bold text-base rounded-xl shadow-md transition-all active:scale-[0.98] ${
-            isCopied
-              ? 'bg-green-600 text-white'
-              : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'
+          className={`flex-1 py-3 px-3 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 ${
+            isSaved
+              ? 'bg-emerald-600 text-white shadow-emerald-200 shadow-md'
+              : 'bg-gray-800 hover:bg-gray-900 text-white shadow-md'
           }`}
         >
           {isSubmitting ? (
-            <span>กำลังบันทึกและสร้างรายงาน...</span>
-          ) : isCopied ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : isSaved ? (
             <>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-              </svg>
-              คัดลอกรายงานเรียบร้อย! (พร้อมวางใน Line)
+              <Check size={16} />
+              <span>บันทึกแล้ว</span>
             </>
           ) : (
             <>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              Generate Report
+              <Save size={16} />
+              <span>บันทึกข้อมูล</span>
+            </>
+          )}
+        </button>
+
+        {/* 2. ปุ่มบันทึก + คัดลอกข้อความรายงาน */}
+        <button
+          type="button"
+          onClick={onGenerate}
+          disabled={isSubmitting}
+          className={`flex-1 py-3 px-3 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 ${
+            isCopied
+              ? 'bg-emerald-600 text-white shadow-emerald-200 shadow-md'
+              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 shadow-md'
+          }`}
+        >
+          {isSubmitting ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : isCopied ? (
+            <>
+              <Check size={16} />
+              <span>คัดลอกแล้ว</span>
+            </>
+          ) : (
+            <>
+              <Copy size={16} />
+              <span>คัดลอกรายงาน</span>
             </>
           )}
         </button>

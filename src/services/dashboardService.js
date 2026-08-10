@@ -3,7 +3,6 @@ import { getTodayThaiDate } from './reportService';
 
 /**
  * ดึงข้อมูลสถิติมุมมอง Dashboard ณ เวลาปัจจุบัน
- * (สินค้ายอดนิยมคำนวณ Weighted Score: ยอดขาย * (ยอดขาย / ยอดส่ง))
  */
 export const getDashboardAnalytics = async () => {
   const today = getTodayThaiDate();
@@ -44,7 +43,6 @@ export const getDashboardAnalytics = async () => {
       ORDER BY s.sort_order ASC, p.sort_order ASC
     `;
 
-    // จัดกลุ่มสินค้าตามผู้ฝากขาย
     const sellerMap = {};
     sellerReportData.forEach((row) => {
       if (!sellerMap[row.seller_id]) {
@@ -78,7 +76,7 @@ export const getDashboardAnalytics = async () => {
       }
     });
 
-    // 4. สินค้าขายดีที่สุด 5 อันดับแรก (แก้ไขการ CAST numeric เพื่อป้องกัน Integer Division 0)
+    // 4. สินค้าขายดีที่สุด 5 อันดับแรก
     const topProducts = await sql`
       SELECT 
         p.name AS product_name,
@@ -126,5 +124,102 @@ export const getDashboardAnalytics = async () => {
   } catch (error) {
     console.error('Error fetching dashboard analytics:', error);
     throw error;
+  }
+};
+
+/**
+ * ดึงรายงานยอดสะสมแยกรายคนและรายสินค้า ย้อนหลัง N วัน
+ */
+export const getRangeAnalyticsForAI = async (rangeDays = 1) => {
+  const today = getTodayThaiDate();
+
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - (rangeDays - 1));
+  const startDateStr = startDate.toISOString().split('T')[0];
+
+  try {
+    const rangeSellerData = await sql`
+      SELECT 
+        s.name AS seller_name,
+        p.name AS product_name,
+        SUM(r.sent) AS total_sent,
+        SUM(r.sold) AS total_sold,
+        SUM(r.remain) AS total_remain,
+        ROUND((SUM(r.sold)::numeric / NULLIF(SUM(r.sent), 0)::numeric) * 100) AS sell_rate
+      FROM reports r
+      JOIN sellers s ON r.seller_id = s.id
+      JOIN products p ON r.product_id = p.id
+      WHERE r.report_date >= ${startDateStr}::date
+        AND r.report_date <= ${today}::date
+      GROUP BY s.id, s.name, p.id, p.name
+      ORDER BY s.name ASC, total_sold DESC
+    `;
+
+    return rangeSellerData || [];
+  } catch (error) {
+    console.error('Error fetching range analytics for AI:', error);
+    return [];
+  }
+};
+
+/**
+ * 🟢 ดึงข้อมูลสถิติย้อนหลัง N วัน เจาะจงเฉพาะรายบุคคล (ปรับค้นหายืดหยุ่น ไม่ติดปัญหาคนอื่นหาไม่เจอ)
+ */
+export const getSpecificSellerAnalytics = async (sellerName, rangeDays = 7) => {
+  const today = getTodayThaiDate();
+
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - (rangeDays - 1));
+  const startDateStr = startDate.toISOString().split('T')[0];
+
+  // ลบคำนำหน้าและสระ/วรรณยุกต์ออกเพื่อค้นหาได้กว้างขึ้น
+  const cleanTerm = sellerName
+    .replace(/^(จ่า|ผู้กอง|หมวด|นาย|นาง|นางสาว)/i, '')
+    .replace(/[็๊่้ํ์]/g, '')
+    .trim();
+
+  try {
+    // 1. ค้นหารายชื่อผู้ฝากขายในตาราง sellers
+    const matchedSellers = await sql`
+      SELECT id, name FROM sellers 
+      WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name, '็', ''), '๊', ''), '่', ''), '้', ''), '์', '') 
+            ILIKE ${'%' + cleanTerm + '%'}
+         OR name ILIKE ${'%' + sellerName + '%'}
+      LIMIT 1
+    `;
+
+    if (!matchedSellers || matchedSellers.length === 0) {
+      return { foundSeller: false, sellerName: sellerName, stats: [] };
+    }
+
+    const seller = matchedSellers[0];
+
+    // 2. ดึงสถิติตัวเลขรายงานการขายย้อนหลัง
+    const stats = await sql`
+      SELECT 
+        s.name AS seller_name,
+        p.name AS product_name,
+        TO_CHAR(r.report_date, 'YYYY-MM-DD') AS date,
+        COALESCE(r.sent, 0) AS sent,
+        COALESCE(r.sold, 0) AS sold,
+        COALESCE(r.remain, 0) AS remain,
+        ROUND((COALESCE(r.sold, 0)::numeric / NULLIF(COALESCE(r.sent, 0), 0)::numeric) * 100) AS sell_rate
+      FROM reports r
+      JOIN sellers s ON r.seller_id = s.id
+      JOIN products p ON r.product_id = p.id
+      WHERE s.id = ${seller.id}
+        AND r.report_date >= ${startDateStr}::date
+        AND r.report_date <= ${today}::date
+      ORDER BY r.report_date DESC, p.name ASC
+    `;
+
+    return {
+      foundSeller: true,
+      sellerName: seller.name,
+      stats: stats || []
+    };
+  } catch (error) {
+    console.error(`Error fetching analytics for seller ${sellerName}:`, error);
+    return { foundSeller: false, sellerName: sellerName, stats: [] };
   }
 };

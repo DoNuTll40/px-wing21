@@ -112,7 +112,7 @@ export default function Dashboard({ onBack }) {
           <div>
             <div className="flex items-center gap-1.5 text-blue-600 font-bold text-[10px] uppercase tracking-wider mb-0.5">
               <BarChart3 size={14} />
-              <span>Real-time Executive Dashboard</span>
+              <span>Real-time Analytics Dashboard</span>
             </div>
             <h1 className="text-lg sm:text-2xl font-extrabold text-gray-900">สรุปยอดขายประจำวัน</h1>
           </div>
@@ -122,12 +122,11 @@ export default function Dashboard({ onBack }) {
           </p>
         </div>
 
-        {/* 🟢 AI Executive Insights Widget */}
+        {/* AI Smart Insights Widget */}
         <AIInsightCard dashboardData={data} />
 
         {/* 4 Cards Summary KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-          {/* Card 1 */}
           <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200/80 shadow-2xs flex flex-col justify-between">
             <div className="flex justify-between items-center text-gray-500 mb-1">
               <span className="text-[11px] sm:text-xs font-medium">ส่งรวมทั้งหมด</span>
@@ -141,7 +140,6 @@ export default function Dashboard({ onBack }) {
             </div>
           </div>
 
-          {/* Card 2 */}
           <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200/80 shadow-2xs flex flex-col justify-between">
             <div className="flex justify-between items-center text-gray-500 mb-1">
               <span className="text-[11px] sm:text-xs font-medium">ขายได้รวม</span>
@@ -155,7 +153,6 @@ export default function Dashboard({ onBack }) {
             </div>
           </div>
 
-          {/* Card 3 */}
           <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200/80 shadow-2xs flex flex-col justify-between">
             <div className="flex justify-between items-center text-gray-500 mb-1">
               <span className="text-[11px] sm:text-xs font-medium">อัตราขายได้</span>
@@ -171,7 +168,6 @@ export default function Dashboard({ onBack }) {
             </div>
           </div>
 
-          {/* Card 4 */}
           <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200/80 shadow-2xs flex flex-col justify-between">
             <div className="flex justify-between items-center text-gray-500 mb-1">
               <span className="text-[11px] sm:text-xs font-medium">ผู้ฝากลงรายการ</span>
@@ -192,7 +188,6 @@ export default function Dashboard({ onBack }) {
 
         {/* 2-Column Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-5">
-          {/* Column 1 & 2: ประสิทธิภาพผู้ฝากขาย */}
           <div className="lg:col-span-2 bg-white p-3.5 sm:p-5 rounded-2xl border border-gray-200 shadow-2xs">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
               <h3 className="font-bold text-gray-800 text-xs sm:text-sm flex items-center gap-1.5">
@@ -200,7 +195,7 @@ export default function Dashboard({ onBack }) {
                 <span>ประสิทธิภาพผู้ฝากขายวันนี้</span>
               </h3>
               <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
-                <Info size={11} /> แแตะแถบเพื่อดูสินค้า
+                <Info size={11} /> แตะแถบเพื่อดูสินค้า
               </span>
             </div>
 
@@ -259,9 +254,8 @@ export default function Dashboard({ onBack }) {
             </div>
           </div>
 
-          {/* Column 3: สินค้าขายดี + สรุป 7 วัน */}
+          {/* Column 3 */}
           <div className="space-y-3.5 sm:space-y-5">
-            {/* Top 5 สินค้าขายดี */}
             <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-gray-200 shadow-2xs">
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
                 <h3 className="font-bold text-gray-800 text-xs sm:text-sm flex items-center gap-1.5 text-amber-600">
@@ -309,7 +303,6 @@ export default function Dashboard({ onBack }) {
               </div>
             </div>
 
-            {/* สรุปแนวโน้ม 7 วันย้อนหลัง */}
             <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-gray-200 shadow-2xs">
               <h3 className="font-bold text-gray-800 text-xs sm:text-sm mb-3 pb-2 border-b border-gray-100">📅 ยอดขาย 7 วันย้อนหลัง</h3>
               <div className="space-y-2">

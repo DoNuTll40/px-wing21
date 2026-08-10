@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { getDashboardAnalytics } from '../services/dashboardService';
 import { formatDateThai } from '../utils/formatDate';
+import AIInsightCard from './AIInsightCard';
 
 export default function Dashboard({ onBack }) {
   const [data, setData] = useState(null);
@@ -121,6 +122,9 @@ export default function Dashboard({ onBack }) {
           </p>
         </div>
 
+        {/* 🟢 AI Executive Insights Widget */}
+        <AIInsightCard dashboardData={data} />
+
         {/* 4 Cards Summary KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           {/* Card 1 */}
@@ -196,7 +200,7 @@ export default function Dashboard({ onBack }) {
                 <span>ประสิทธิภาพผู้ฝากขายวันนี้</span>
               </h3>
               <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
-                <Info size={11} /> แตะแถบเพื่อดูสินค้า
+                <Info size={11} /> แแตะแถบเพื่อดูสินค้า
               </span>
             </div>
 

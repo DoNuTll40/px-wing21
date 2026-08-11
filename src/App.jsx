@@ -32,7 +32,7 @@ import { saveDailyReport, getTodayReport, getLatestPreviousReports } from './ser
 import { generateReportText } from './utils/generateReport';
 import { copyToClipboard } from './utils/clipboard';
 
-const APP_VERSION = 'v1.5.0';
+const APP_VERSION = 'v1.5.5';
 
 export default function App() {
   const navigate = useNavigate();

@@ -63,9 +63,6 @@ const normalizeThaiText = (str) => {
     .trim();
 };
 
-/**
- * วิเคราะห์ข้อมูลภาพรวม
- */
 export const analyzeDashboardWithAI = async (dashboardData, rangeDays = 1) => {
   const apiUrl = import.meta.env.VITE_GEMINI_URL;
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -158,7 +155,7 @@ export const analyzeDashboardWithAI = async (dashboardData, rangeDays = 1) => {
 };
 
 /**
- * 🟢 แชทโต้ตอบ - ดึงรายชื่อผู้ฝากขายทั้งหมดสดๆ จาก DB ส่งให้ AI เสมอ
+ * 🟢 แชทโต้ตอบ - สแกนผู้ฝากขายทุกคนตรงๆ จาก DB หรือใช้สถิติภาพรวมทุกคนวาดกราฟ
  */
 export const sendChatFollowUp = async (chatHistory, userMessage) => {
   const apiUrl = import.meta.env.VITE_GEMINI_URL;
@@ -175,14 +172,13 @@ export const sendChatFollowUp = async (chatHistory, userMessage) => {
   const targetDays = daysMatch ? parseInt(daysMatch[1], 10) : 7;
 
   try {
-    // 🟢 1. ดึงผู้ฝากขายทุกคนที่มีอยู่ใน DB แบบไม่กรองทิ้ง
     const allSellersRes = await sql`SELECT name FROM sellers ORDER BY sort_order ASC, name ASC`;
     const allSellerNames = (allSellersRes || []).map((s) => s.name);
 
-    // 🟢 2. สแกนหาชื่อคนที่ผู้ใช้พิมพ์ถาม
     let targetSeller = '';
     const normUserMsg = normalizeThaiText(userMessage);
 
+    // สแกนหาชื่อคนที่ผู้ใช้ระบุในข้อความ
     for (const seller of allSellerNames) {
       const normSeller = normalizeThaiText(seller);
       const cleanSeller = seller.replace(/^(จ่า|ผู้กอง|หมวด|นาย|นาง|นางสาว)/i, '');
@@ -197,18 +193,30 @@ export const sendChatFollowUp = async (chatHistory, userMessage) => {
       }
     }
 
-    // 🟢 3. ถ้าเจอชื่อผู้ฝากขายเฉพาะเจาะจง ให้ดึงสถิติจริงของคนนั้น
+    // 🟢 ถ้าสั่งขอกราฟแต่ไม่ได้ระบุชื่อคน ให้ดึงยอดรวมผู้ฝากขายทุกคนมาวาดกราฟเปรียบเทียบ
+    const isAskingChart = userMessage.includes('กราฟ') || userMessage.includes('เปรียบเทียบ');
+
     if (targetSeller) {
       const sellerData = await getSpecificSellerAnalytics(targetSeller, targetDays);
       if (sellerData.foundSeller && sellerData.stats.length > 0) {
-        dynamicContext = `\n[สถิติจริงของ "${sellerData.sellerName}" ย้อนหลัง ${targetDays} วันจาก DB]:\n${JSON.stringify(sellerData.stats)}`;
+        dynamicContext = `\n[ข้อมูลสถิติจริงของ "${sellerData.sellerName}" ย้อนหลัง ${targetDays} วันจาก DB]:\n${JSON.stringify(sellerData.stats)}`;
       } else {
         dynamicContext = `\n[ข้อมูลในระบบ]: มีผู้ฝากขายชื่อ "${targetSeller}" ในระบบ แต่ไม่มีประวัติยอดขายย้อนหลัง ${targetDays} วัน`;
       }
+    } else if (isAskingChart) {
+      // ดึงสถิติตัวเลขภาพรวมของผู้ฝากขายทุกคนย้อนหลัง N วัน
+      const overallStats = await getRangeAnalyticsForAI(targetDays);
+      const summaryList = overallStats.map(s => ({
+        name: s.seller_name,
+        sold: Number(s.total_sold || 0),
+        sent: Number(s.total_sent || 0),
+        remain: Number(s.total_remain || 0)
+      }));
+
+      dynamicContext = `\n[สถิติภาพรวมของผู้ฝากขายทุกคนย้อนหลัง ${targetDays} วัน สำหรับวาดกราฟเปรียบเทียบ]:\n${JSON.stringify(summaryList)}`;
     }
 
-    // 🟢 4. ฝังรายชื่อผู้ฝากขายทั้งหมดในระบบส่งให้ AI รับรู้เสมอทุกครั้ง
-    const systemSellersList = `\n[รายชื่อผู้ฝากขายทั้งหมดที่มีอยู่ในฐานข้อมูลร้าน PX ขณะนี้ (${allSellerNames.length} คน)]: ${allSellerNames.join(', ')}`;
+    const systemSellersList = `\n[รายชื่อผู้ฝากขายทั้งหมดในระบบ (${allSellerNames.length} คน)]: ${allSellerNames.join(', ')}`;
     dynamicContext = systemSellersList + dynamicContext;
 
   } catch (err) {
@@ -225,9 +233,19 @@ export const sendChatFollowUp = async (chatHistory, userMessage) => {
 
   const strictInstruction = `
 กติกาการตอบ:
-1. หากผู้ใช้ถามว่ามีใครบ้าง หรือมีผู้ฝากขายคนไหนบ้าง ให้แสดงรายชื่อทั้งหมดจาก [รายชื่อผู้ฝากขายทั้งหมดที่มีอยู่ในฐานข้อมูลร้าน PX ขณะนี้] ห้ามตอบว่ามีคนเดียวเด็ดขาด!
-2. ตอบด้วยภาษาไทยสุภาพ สั้น กระชับ ตรงประเด็น สไตล์ผู้ช่วยร้านสวัสดิการ PX (ลงท้ายด้วย "ครับ")
-3. อ้างอิงเฉพาะชื่อคนและตัวเลขที่มีอยู่ในระบบเท่านั้น ห้ามเมคข้อมูลขึ้นมาเอง
+1. หากผู้ใช้สั่ง "ขอกราฟ" หรือ "เปรียบเทียบ" โดยไม่ระบุชื่อคน ให้วาดกราฟเปรียบเทียบยอดขายรวมของผู้ฝากขายทุกคนจากข้อมูล [สถิติภาพรวมของผู้ฝากขายทุกคน]
+2. รูปแบบ JSON บล็อกกราฟต้องปิดด้วย \`\`\`chart ... \`\`\` เสมอ:
+\`\`\`chart
+{
+  "chartType": "bar",
+  "title": "หัวข้อกราฟ",
+  "data": [
+    { "name": "ชื่อคน/ชื่อสินค้า", "sold": 10, "sent": 20, "remain": 10 }
+  ]
+}
+\`\`\`
+3. ตอบด้วยภาษาไทยสุภาพ สั้น กระชับ ตรงประเด็น สไตล์ผู้ช่วยร้านสวัสดิการ PX (ลงท้ายด้วย "ครับ")
+4. ห้ามสร้างตัวเลขหรือชื่อคนนอกเหนือจากชุดข้อมูลที่ให้เด็ดขาด
 `;
 
   recentHistory.push({

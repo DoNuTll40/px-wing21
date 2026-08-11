@@ -1,6 +1,143 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, RefreshCw, AlertTriangle, Lightbulb, Calendar, Send, MessageSquare, Bot, X, Maximize2, HelpCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { Sparkles, RefreshCw, AlertTriangle, Lightbulb, Calendar, Send, MessageSquare, Bot, X, Maximize2, HelpCircle, BarChart3, Download } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line, Legend } from 'recharts';
+import { toPng } from 'html-to-image';
 import { analyzeDashboardWithAI, sendChatFollowUp } from '../services/aiService';
+
+// 🟢 1. แยกคอมโพเนนต์ช่องพิมพ์ข้อความอิสระ (พิมพ์ลื่นไม่กระตุก ไม่ส่งผลต่อการ์ดกราฟ)
+const ChatInputForm = memo(({ onSend, chatLoading }) => {
+  const [inputValue, setInputValue] = useState('');
+
+  const handleTextareaChange = (e) => {
+    setInputValue(e.target.value);
+  };
+
+  const handleSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (!inputValue.trim() || chatLoading) return;
+    onSend(inputValue.trim());
+    setInputValue('');
+  };
+
+  const handleKeyDown = (e) => {
+    const isMobileDevice = typeof window !== 'undefined' && 
+      ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768);
+
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      if (!isMobileDevice) {
+        // คอมพิวเตอร์: Enter เพื่อส่ง
+        e.preventDefault();
+        handleSubmit(e);
+      }
+      // มือถือ: Enter ลงบรรทัดใหม่
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex items-end bg-slate-50 border border-slate-200 rounded-2xl p-1.5 focus-within:border-blue-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+      <textarea
+        rows={2} // 🟢 เพิ่มความสูงเริ่มต้นขึ้นอีก 1 บรรทัด (2 บรรทัด)
+        value={inputValue}
+        onChange={handleTextareaChange}
+        onKeyDown={handleKeyDown}
+        placeholder="พิมพ์ข้อความสอบถาม AI... (คอมฯ กด Enter เพื่อส่ง)"
+        disabled={chatLoading}
+        className="flex-1 bg-transparent px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none resize-none min-h-[56px] max-h-[130px] leading-relaxed overflow-y-auto"
+      />
+      <button
+        type="submit"
+        disabled={!inputValue.trim() || chatLoading}
+        className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white p-2.5 rounded-xl disabled:opacity-30 transition-all cursor-pointer shrink-0 shadow-sm mb-0.5 mr-0.5 flex items-center justify-center"
+      >
+        <Send size={15} />
+      </button>
+    </form>
+  );
+});
+
+// 🟢 2. คอมโพเนนต์กราฟแบบ Scroll X
+const ChartCardComponent = memo(({ chartObj, uniqueId, onMaximize, onDownload }) => {
+  const { chartType, title, data } = chartObj;
+  if (!data || data.length === 0) return null;
+
+  const chartElemId = `chart-card-${uniqueId}`;
+  const dynamicMinWidth = Math.max((data?.length || 0) * 55, 320);
+
+  return (
+    <div className="my-3 p-3.5 sm:p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
+      <div className="flex items-center justify-between pb-1 border-b border-slate-100 gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 min-w-0">
+          <BarChart3 size={15} className="text-blue-600 shrink-0" />
+          <span className="truncate">{title || 'กราฟสรุปสถิติ'}</span>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => onMaximize({ ...chartObj, id: chartElemId })}
+            className="p-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded-xl transition-all cursor-pointer"
+            title="ดูขยายเต็มจอ"
+          >
+            <Maximize2 size={13} />
+          </button>
+          <button
+            onClick={() => onDownload(chartElemId, title, dynamicMinWidth)}
+            className="p-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-600 text-slate-600 rounded-xl transition-all cursor-pointer"
+            title="บันทึกกราฟเป็นไฟล์ PNG"
+          >
+            <Download size={13} />
+          </button>
+        </div>
+      </div>
+
+      <div id={chartElemId} className="w-full bg-white p-1 rounded-xl overflow-x-auto scrollbar-thin">
+        <div style={{ minWidth: `${dynamicMinWidth}px`, height: '210px' }}>
+          <ResponsiveContainer width="100%" height="100%" debounce={100}>
+            {chartType === 'line' ? (
+              <LineChart data={data} margin={{ top: 10, right: 15, left: -20, bottom: 25 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#64748B" 
+                  tickLine={false} 
+                  tickFormatter={(val) => val.replace(/\s*69|\s*2569|\s*2026/g, '')}
+                  interval={0} 
+                  angle={-20} 
+                  textAnchor="end" 
+                  style={{ fontSize: '9px' }} 
+                />
+                <YAxis stroke="#64748B" tickLine={false} style={{ fontSize: '10px' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#FFF', borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '11px' }} />
+                <Legend verticalAlign="top" wrapperStyle={{ fontSize: '10px', paddingTop: '0px' }} />
+                <Line type="monotone" dataKey="sold" name="ขายได้" stroke="#2563EB" strokeWidth={2.5} dot={{ r: 4 }} isAnimationActive={false} />
+              </LineChart>
+            ) : (
+              <BarChart data={data} barCategoryGap="20%" margin={{ top: 10, right: 15, left: -20, bottom: 25 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#64748B" 
+                  tickLine={false} 
+                  tickFormatter={(val) => val.replace(/\s*69|\s*2569|\s*2026/g, '')}
+                  interval={0} 
+                  angle={-20} 
+                  textAnchor="end" 
+                  style={{ fontSize: '9px' }} 
+                />
+                <YAxis stroke="#64748B" tickLine={false} style={{ fontSize: '10px' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#FFF', borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '11px' }} />
+                <Legend verticalAlign="top" wrapperStyle={{ fontSize: '10px', paddingBottom: '4px' }} />
+                <Bar dataKey="sold" name="ขายได้" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+                {data[0]?.remain !== undefined && (
+                  <Bar dataKey="remain" name="คงเหลือ" fill="#F59E0B" radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+                )}
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export default function AIInsightCard({ dashboardData }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,28 +147,36 @@ export default function AIInsightCard({ dashboardData }) {
   const [error, setError] = useState('');
 
   const [chatHistory, setChatHistory] = useState([]);
-  const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
 
-  const chatEndRef = useRef(null);
-  const textareaRef = useRef(null);
+  const [activeChartData, setActiveChartData] = useState(null);
 
-  // ปุ่มคำถามด่วน (Quick Suggestions)
-  const quickQuestions = [
-    'วิเคราะห์ของจ่าอัดย้อนหลัง 3 วัน',
-    'วิเคราะห์ของจ่านุย้อนหลัง 3 วัน',
-    'สรุปรายการสินค้าเสี่ยงเน่าเสีย/ค้างส่ง',
-    'แนวทางปรับยอดสั่งผลิตประจำวัน'
+  const chatEndRef = useRef(null);
+
+  const allSellers = (dashboardData?.sellerStats || []).map((s) => s.seller_name).filter(Boolean);
+  const activeSellerNames = allSellers.slice(0, 3);
+  const daysText = rangeDays === 1 ? 'วันนี้' : `${rangeDays} วันย้อนหลัง`;
+
+  const dynamicQuickQuestions = [
+    `ขอกราฟเปรียบเทียบยอดขายภาพรวม (${daysText})`,
+    ...activeSellerNames.map((name) => `ขอกราฟยอดขายของ${name}`),
+    `สรุปสินค้าเสี่ยงเน่าเสีย/ค้างส่ง (${daysText})`
   ];
 
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     }
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     };
   }, [isOpen]);
 
@@ -52,61 +197,121 @@ export default function AIInsightCard({ dashboardData }) {
 
   const modelName = getModelDisplayName();
 
-  const handleTextareaChange = (e) => {
-    const val = e.target.value;
-    setChatInput(val);
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 140)}px`;
-    }
-  };
-
   useEffect(() => {
     if (chatHistory.length > 2) {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatHistory, chatLoading]);
 
-  const renderMarkdownText = (text) => {
+  const handleDownloadChart = useCallback((elementId, title = 'chart', fullWidth = null) => {
+    const node = document.getElementById(elementId);
+    if (!node) return;
+
+    const innerScrollContainer = node.querySelector('.overflow-x-auto') || node;
+    const scrollChild = innerScrollContainer.firstElementChild || innerScrollContainer;
+    
+    const targetWidth = fullWidth || scrollChild.scrollWidth || innerScrollContainer.scrollWidth || node.clientWidth;
+
+    toPng(innerScrollContainer, { 
+      cacheBust: true, 
+      backgroundColor: '#FFFFFF',
+      width: targetWidth + 30,
+      style: {
+        overflow: 'visible',
+        width: `${targetWidth + 30}px`,
+        maxWidth: 'none'
+      }
+    })
+      .then((dataUrl) => {
+        const link = document.createElement('a');
+        link.download = `${title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = dataUrl;
+        link.click();
+      })
+      .catch((err) => {
+        console.error('Failed to download chart image:', err);
+      });
+  }, []);
+
+  const handleMaximizeChart = useCallback((chartObj) => {
+    setActiveChartData(chartObj);
+  }, []);
+
+  const renderMarkdownText = (text, msgIdx) => {
     if (!text) return null;
 
-    const lines = text.split('\n');
-    return lines.map((line, lineIdx) => {
-      const processBold = (str) => {
-        const parts = str.split(/(\*\*.*?\*\*)/g);
-        return parts.map((part, pIdx) => {
-          if (part.startsWith('**') && part.endsWith('**')) {
-            return (
-              <strong key={pIdx} className="font-bold text-amber-200">
-                {part.slice(2, -2)}
-              </strong>
-            );
-          }
-          return part;
-        });
-      };
+    const chartRegex = /```chart\n([\s\S]*?)\n```/gi;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
 
-      const trimmed = line.trim();
+    while ((match = chartRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ type: 'text', content: text.substring(lastIndex, match.index) });
+      }
+      parts.push({ type: 'chart', content: match[1] });
+      lastIndex = chartRegex.lastIndex;
+    }
 
-      if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+    if (lastIndex < text.length) {
+      parts.push({ type: 'text', content: text.substring(lastIndex) });
+    }
+
+    return parts.map((part, pIdx) => {
+      if (part.type === 'chart') {
+        try {
+          const chartObj = JSON.parse(part.content);
+          return (
+            <ChartCardComponent 
+              key={pIdx} 
+              chartObj={chartObj} 
+              uniqueId={`${msgIdx}-${pIdx}`} 
+              onMaximize={handleMaximizeChart}
+              onDownload={handleDownloadChart}
+            />
+          );
+        } catch (e) {
+          return null;
+        }
+      }
+
+      const lines = part.content.split('\n');
+      return lines.map((line, lineIdx) => {
+        const processBold = (str) => {
+          const subParts = str.split(/(\*\*.*?\*\*)/g);
+          return subParts.map((subPart, spIdx) => {
+            if (subPart.startsWith('**') && subPart.endsWith('**')) {
+              return (
+                <strong key={spIdx} className="font-semibold text-slate-900">
+                  {subPart.slice(2, -2)}
+                </strong>
+              );
+            }
+            return subPart;
+          });
+        };
+
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+          return (
+            <div key={`${lineIdx}`} className="flex items-start gap-1.5 ml-1 my-0.5">
+              <span className="text-blue-600 font-bold shrink-0">•</span>
+              <span>{processBold(trimmed.slice(2))}</span>
+            </div>
+          );
+        }
+
+        if (trimmed === '') {
+          return <div key={`${lineIdx}`} className="h-1.5" />;
+        }
+
         return (
-          <div key={lineIdx} className="flex items-start gap-1.5 ml-1 my-0.5">
-            <span className="text-blue-400 font-bold shrink-0">•</span>
-            <span>{processBold(trimmed.slice(2))}</span>
-          </div>
+          <p key={`${lineIdx}`} className="my-0.5">
+            {processBold(line)}
+          </p>
         );
-      }
-
-      if (trimmed === '') {
-        return <div key={lineIdx} className="h-1.5" />;
-      }
-
-      return (
-        <p key={lineIdx} className="my-0.5">
-          {processBold(line)}
-        </p>
-      );
+      });
     });
   };
 
@@ -150,23 +355,16 @@ export default function AIInsightCard({ dashboardData }) {
     handleAnalyze(days);
   };
 
-  const handleSendChat = async (e, textToSend = null) => {
-    if (e) e.preventDefault();
-    const query = textToSend || chatInput;
-    if (!query.trim() || chatLoading) return;
+  const handleSendChat = useCallback(async (textToSend) => {
+    if (!textToSend || !textToSend.trim() || chatLoading) return;
 
-    const userText = query.trim();
-    setChatInput('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
+    const userText = textToSend.trim();
 
-    const updatedHistory = [...chatHistory, { role: 'user', text: userText }];
-    setChatHistory(updatedHistory);
+    setChatHistory((prev) => [...prev, { role: 'user', text: userText }]);
     setChatLoading(true);
 
     try {
-      const aiReply = await sendChatFollowUp(updatedHistory, userText);
+      const aiReply = await sendChatFollowUp(chatHistory, userText);
       setChatHistory((prev) => [...prev, { role: 'model', text: aiReply }]);
     } catch (err) {
       setChatHistory((prev) => [
@@ -176,125 +374,125 @@ export default function AIInsightCard({ dashboardData }) {
     } finally {
       setChatLoading(false);
     }
-  };
+  }, [chatHistory, chatLoading]);
 
   return (
     <>
-      {/* 1. Compact Banner */}
+      {/* Banner บน Dashboard */}
       <div 
         onClick={handleOpenModal}
-        className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white p-3.5 sm:p-4 rounded-2xl shadow-md border border-blue-800/40 cursor-pointer hover:border-blue-500/60 transition-all group my-1 flex items-center justify-between"
+        className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-300 transition-all cursor-pointer group my-2 flex items-center justify-between"
       >
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-amber-400/10 rounded-xl border border-amber-400/20 group-hover:scale-105 transition-transform">
-            <Sparkles size={18} className="text-amber-400 animate-pulse" />
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-all">
+            <Sparkles size={18} />
           </div>
           <div>
-            <div className="text-xs font-bold text-blue-200 flex items-center gap-1.5">
+            <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <span>PX Smart Assistant</span>
-              <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded border border-blue-400/20">
+              <span className="text-[10px] bg-blue-50 text-blue-600 font-semibold px-2 py-0.5 rounded-full border border-blue-100">
                 ระบบสวัสดิการ
               </span>
             </div>
-            <p className="text-[11px] text-slate-300 mt-0.5">
-              {analysis ? analysis.executiveSummary?.slice(0, 50) + '...' : 'เปิดผู้ช่วย AI เพื่อวิเคราะห์รายงานยอดขายสวัสดิการ'}
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {analysis ? analysis.executiveSummary?.slice(0, 50) + '...' : 'เปิดรายงานวิเคราะห์สถิติและวาดกราฟยอดขาย'}
             </p>
           </div>
         </div>
 
-        <button className="bg-white/10 hover:bg-white/20 text-blue-100 p-2 rounded-xl border border-white/15 transition-all shrink-0 ml-2">
+        <button className="bg-slate-50 hover:bg-slate-100 text-slate-600 p-2 rounded-xl border border-slate-200 transition-all shrink-0 ml-2">
           <Maximize2 size={15} />
         </button>
       </div>
 
-      {/* 2. Full-screen Pop-up Modal */}
+      {/* Main Full-screen Pop-up Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-2xl flex flex-col text-white font-sans">
+        <div className="fixed inset-0 top-0 left-0 w-screen h-[100dvh] z-[999] bg-slate-50 flex flex-col text-slate-800 font-sans overflow-hidden">
           {/* Header Bar */}
-          <div className="bg-slate-900/90 border-b border-blue-900/40 p-3.5 sm:p-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-amber-400/10 rounded-lg border border-amber-400/20">
-                <Sparkles size={16} className="text-amber-400 animate-pulse" />
+          <div className="bg-white border-b border-slate-200 p-3.5 sm:p-4 flex items-center justify-between sticky top-0 z-10 shrink-0 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-blue-600 text-white rounded-xl shadow-sm">
+                <Sparkles size={18} />
               </div>
               <div>
-                <h2 className="text-xs sm:text-sm font-extrabold text-blue-200">PX Smart Assistant</h2>
-                <p className="text-[10px] text-slate-400">ระบบผู้ช่วยวิเคราะห์ยอดขายร้านสวัสดิการ ({modelName})</p>
+                <h2 className="text-xs sm:text-sm font-bold text-slate-800">PX Smart Assistant</h2>
+                <p className="text-[10px] text-slate-500">ระบบประมวลผลข้อมูลสวัสดิการ ({modelName})</p>
               </div>
             </div>
 
-            {/* Controls */}
             <div className="flex items-center gap-2">
               <div className="relative flex items-center">
                 <select
                   value={rangeDays}
                   onChange={handleRangeChange}
                   disabled={loading}
-                  className="appearance-none bg-slate-800 border border-white/20 text-white text-[11px] rounded-xl pl-2.5 pr-6 py-1.5 focus:outline-none cursor-pointer font-medium"
+                  className="appearance-none bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-semibold rounded-xl pl-3 pr-7 py-1.5 focus:outline-none cursor-pointer"
                 >
-                  <option value={1} className="bg-slate-900 text-white">วันนี้</option>
-                  <option value={3} className="bg-slate-900 text-white">3 วันย้อนหลัง</option>
-                  <option value={7} className="bg-slate-900 text-white">7 วันย้อนหลัง</option>
+                  <option value={1}>วันนี้</option>
+                  <option value={3}>3 วันย้อนหลัง</option>
+                  <option value={7}>7 วันย้อนหลัง</option>
                 </select>
-                <Calendar size={11} className="absolute right-2 text-blue-200 pointer-events-none" />
+                <Calendar size={12} className="absolute right-2.5 text-slate-400 pointer-events-none" />
               </div>
 
               <button
                 onClick={() => handleAnalyze(rangeDays)}
                 disabled={loading}
-                className="p-1.5 bg-blue-600/50 hover:bg-blue-600 text-white rounded-xl border border-blue-400/30 transition-all cursor-pointer"
-                title="วิเคราะห์ใหม่"
+                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl border border-slate-200 transition-all cursor-pointer"
               >
-                <RefreshCw size={14} className={loading ? 'animate-spin text-amber-300' : ''} />
+                <RefreshCw size={14} className={loading ? 'animate-spin text-blue-600' : ''} />
               </button>
 
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 bg-white/10 hover:bg-rose-600/80 text-slate-300 hover:text-white rounded-xl border border-white/10 transition-all cursor-pointer ml-1"
+                className="p-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-500 rounded-xl border border-slate-200 transition-all cursor-pointer ml-1"
               >
                 <X size={18} />
               </button>
             </div>
           </div>
 
-          {/* Scrollable Content Area */}
+          {/* Content Area */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 max-w-4xl mx-auto w-full">
             {loading ? (
-              <div className="py-12 text-center space-y-3">
-                <div className="w-8 h-8 border-3 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                <p className="text-xs text-blue-200 font-mono">กำลังประมวลผลข้อมูลการขายสวัสดิการ...</p>
+              <div className="py-20 text-center space-y-3">
+                <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-xs text-slate-500 font-medium">กำลังสรุปรายงานสถิติการขาย...</p>
               </div>
             ) : error ? (
-              <div className="p-4 bg-rose-950/60 rounded-2xl border border-rose-800/50 text-rose-200 text-xs leading-relaxed">
+              <div className="p-4 bg-rose-50 rounded-2xl border border-rose-200 text-rose-700 text-xs">
                 {error}
               </div>
             ) : analysis ? (
               <>
                 {/* Executive Summary */}
-                <div className="p-4 bg-blue-900/30 rounded-2xl border border-blue-500/25 space-y-2 shadow-inner">
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2">
                   {analysis.dateRangeText && (
-                    <div className="flex items-center gap-1 text-[10px] font-semibold text-blue-300 bg-blue-500/20 px-2.5 py-0.5 rounded-md w-fit border border-blue-400/20">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-full w-fit border border-blue-100">
                       <Calendar size={11} />
                       <span>ข้อมูลช่วง: {analysis.dateRangeText}</span>
                     </div>
                   )}
-                  <div className="text-slate-100 text-xs sm:text-sm font-medium leading-relaxed">
-                    {renderMarkdownText(analysis.executiveSummary)}
+                  <div className="text-slate-800 text-xs sm:text-sm font-medium leading-relaxed">
+                    {renderMarkdownText(analysis.executiveSummary, 'exec')}
                   </div>
                 </div>
 
-                {/* Dead Stock & Action Plan Grid */}
+                {/* Dead Stock & Action Plan */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   {analysis.deadStockAlerts?.length > 0 && (
-                    <div className="p-3.5 bg-amber-950/30 rounded-2xl border border-amber-500/25 space-y-2">
-                      <div className="font-bold text-amber-400 flex items-center gap-1.5">
-                        <AlertTriangle size={15} />
-                        <span>รายการสินค้าเสี่ยงค้าง/จมทุน</span>
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                      <div className="font-bold text-amber-700 flex items-center gap-2 text-xs">
+                        <div className="p-1.5 bg-amber-50 rounded-xl border border-amber-100">
+                          <AlertTriangle size={15} className="text-amber-600" />
+                        </div>
+                        <span>สินค้าเสี่ยงค้าง/จมทุน</span>
                       </div>
-                      <div className="text-amber-100/90 space-y-1.5 leading-relaxed text-[11px] sm:text-xs">
+                      <div className="text-slate-600 space-y-1.5 leading-relaxed text-[11px] sm:text-xs">
                         {analysis.deadStockAlerts.map((item, i) => (
-                          <div key={i} className="flex items-start gap-1">
-                            <span className="text-amber-400 font-bold">•</span>
-                            <span>{renderMarkdownText(item)}</span>
+                          <div key={i} className="flex items-start gap-1.5">
+                            <span className="text-amber-500 font-bold">•</span>
+                            <span>{renderMarkdownText(item, `dead-${i}`)}</span>
                           </div>
                         ))}
                       </div>
@@ -302,16 +500,18 @@ export default function AIInsightCard({ dashboardData }) {
                   )}
 
                   {analysis.actionableSuggestions?.length > 0 && (
-                    <div className="p-3.5 bg-emerald-950/30 rounded-2xl border border-emerald-500/25 space-y-2">
-                      <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-                        <Lightbulb size={15} />
-                        <span>ข้อเสนอแนะในการปรับยอดผลิต</span>
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                      <div className="font-bold text-emerald-700 flex items-center gap-2 text-xs">
+                        <div className="p-1.5 bg-emerald-50 rounded-xl border border-emerald-100">
+                          <Lightbulb size={15} className="text-emerald-600" />
+                        </div>
+                        <span>คำแนะนำปรับยอดผลิต</span>
                       </div>
-                      <div className="text-emerald-100/90 space-y-1.5 leading-relaxed text-[11px] sm:text-xs">
+                      <div className="text-slate-600 space-y-1.5 leading-relaxed text-[11px] sm:text-xs">
                         {analysis.actionableSuggestions.map((item, i) => (
-                          <div key={i} className="flex items-start gap-1">
-                            <span className="text-emerald-400 font-bold">•</span>
-                            <span>{renderMarkdownText(item)}</span>
+                          <div key={i} className="flex items-start gap-1.5">
+                            <span className="text-emerald-500 font-bold">•</span>
+                            <span>{renderMarkdownText(item, `action-${i}`)}</span>
                           </div>
                         ))}
                       </div>
@@ -319,11 +519,11 @@ export default function AIInsightCard({ dashboardData }) {
                   )}
                 </div>
 
-                {/* Chat Stream History */}
-                <div className="pt-3 border-t border-white/10 space-y-3">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-300">
-                    <MessageSquare size={14} />
-                    <span>สอบถามเพิ่มเติมกับระบบ AI</span>
+                {/* Chat Area */}
+                <div className="pt-2 space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 px-1">
+                    <MessageSquare size={14} className="text-blue-600" />
+                    <span>สนทนาและสั่งวาดกราฟสถิติ</span>
                   </div>
 
                   {chatHistory.length > 2 && (
@@ -336,24 +536,24 @@ export default function AIInsightCard({ dashboardData }) {
                           }`}
                         >
                           {msg.role !== 'user' && (
-                            <div className="p-1.5 bg-blue-500/20 rounded-xl border border-blue-400/30 text-blue-300 shrink-0 mt-0.5">
+                            <div className="p-2 bg-blue-600 text-white rounded-2xl shrink-0 shadow-sm mt-0.5">
                               <Bot size={14} />
                             </div>
                           )}
                           <div
-                            className={`p-3 rounded-2xl max-w-[85%] leading-relaxed ${
+                            className={`p-3.5 rounded-2xl max-w-[85%] leading-relaxed ${
                               msg.role === 'user'
-                                ? 'bg-blue-600 text-white rounded-tr-none font-medium shadow-md'
-                                : 'bg-slate-900/80 text-slate-100 border border-white/10 rounded-tl-none shadow-md'
+                                ? 'bg-blue-600 text-white rounded-tr-none font-medium shadow-sm'
+                                : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none shadow-sm'
                             }`}
                           >
-                            {renderMarkdownText(msg.text)}
+                            {renderMarkdownText(msg.text, idx)}
                           </div>
                         </div>
                       ))}
                       {chatLoading && (
-                        <div className="flex items-center gap-2 text-blue-300 text-xs italic">
-                          <Bot size={14} className="animate-spin" />
+                        <div className="flex items-center gap-2 text-slate-500 text-xs italic px-2">
+                          <Bot size={14} className="animate-spin text-blue-600" />
                           <span>AI กำลังประมวลผลคำตอบ...</span>
                         </div>
                       )}
@@ -365,44 +565,126 @@ export default function AIInsightCard({ dashboardData }) {
             ) : null}
           </div>
 
-          {/* 🟢 3. Bottom Fixed Input Bar + Quick Chips */}
-          <div className="p-3 sm:p-4 bg-slate-900/95 border-t border-blue-900/40 shrink-0 sticky bottom-0 z-10 backdrop-blur-md space-y-2">
-            {/* Quick Suggestion Chips */}
+          {/* Bottom Fixed Input Bar */}
+          <div className="p-3 sm:p-4 bg-white/95 border-t border-slate-200 shrink-0 space-y-2 pb-safe shadow-md">
+            {allSellers.length > 0 && (
+              <div className="max-w-4xl mx-auto flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[10px]">
+                <span className="text-slate-400 shrink-0 font-medium">เลือกคน:</span>
+                {allSellers.map((sName, sIdx) => (
+                  <button
+                    key={sIdx}
+                    onClick={() => handleSendChat(`ขอกราฟสถิติของ${sName}ช่วง ${daysText}`)}
+                    className="bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 px-2.5 py-0.5 rounded-lg border border-slate-200 transition-all cursor-pointer font-medium whitespace-nowrap shrink-0 active:scale-95"
+                  >
+                    {sName}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Quick Chips */}
             <div className="max-w-4xl mx-auto flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[10px]">
-              <span className="text-slate-400 shrink-0 flex items-center gap-1">
+              <span className="text-slate-400 shrink-0 flex items-center gap-1 font-medium">
                 <HelpCircle size={11} /> คำถามด่วน:
               </span>
-              {quickQuestions.map((q, idx) => (
+              {dynamicQuickQuestions.map((q, idx) => (
                 <button
                   key={idx}
-                  onClick={(e) => handleSendChat(e, q)}
+                  onClick={() => handleSendChat(q)}
                   disabled={chatLoading}
-                  className="bg-white/10 hover:bg-blue-600/50 text-blue-200 hover:text-white px-2.5 py-1 rounded-full border border-white/10 whitespace-nowrap transition-all cursor-pointer shrink-0"
+                  className="bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 px-3 py-1 rounded-full border border-slate-200 whitespace-nowrap transition-all cursor-pointer shrink-0 font-medium active:scale-95"
                 >
                   {q}
                 </button>
               ))}
             </div>
 
-            {/* Input Form */}
-            <form onSubmit={handleSendChat} className="max-w-4xl mx-auto relative flex items-end bg-slate-800/90 border border-white/20 rounded-2xl p-1.5 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400/30 transition-all shadow-inner">
-              <textarea
-                ref={textareaRef}
-                rows={2}
-                value={chatInput}
-                onChange={handleTextareaChange}
-                placeholder="พิมพ์ข้อความสอบถาม AI... (เช่น สรุปยอดขายของจ่าอัดย้อนหลัง 3 วัน)"
-                disabled={chatLoading}
-                className="flex-1 bg-transparent px-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none resize-none min-h-[48px] max-h-[140px] leading-relaxed overflow-y-auto"
-              />
-              <button
-                type="submit"
-                disabled={!chatInput.trim() || chatLoading}
-                className="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white p-2.5 rounded-xl disabled:opacity-30 transition-all cursor-pointer shrink-0 shadow-sm mb-0.5 mr-0.5 flex items-center justify-center"
-              >
-                <Send size={15} />
-              </button>
-            </form>
+            {/* 🟢 ใช้ ChatInputForm คอมโพเนนต์แยกเพื่อป้องกัน Re-render ทั้งหน้ากระตุก */}
+            <ChatInputForm onSend={handleSendChat} chatLoading={chatLoading} />
+          </div>
+        </div>
+      )}
+
+      {/* Modal ดูกราฟขยายเต็มจอ */}
+      {activeChartData && (
+        <div className="fixed inset-0 z-[1000] bg-slate-950/70 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-3xl p-4 sm:p-5 shadow-2xl space-y-3 my-auto max-h-[90vh] flex flex-col border border-slate-100 relative overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 shrink-0 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+                  <BarChart3 size={18} />
+                </div>
+                <h3 className="font-bold text-slate-800 text-xs sm:text-sm truncate">
+                  {activeChartData.title || 'สถิติยอดขาย'}
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => handleDownloadChart('fullscreen-chart-node', activeChartData.title, Math.max((activeChartData.data?.length || 0) * 60, 360))}
+                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold rounded-xl flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                >
+                  <Download size={13} />
+                  <span className="hidden sm:inline">บันทึกภาพ (.PNG)</span>
+                  <span className="sm:hidden">.PNG</span>
+                </button>
+                <button
+                  onClick={() => setActiveChartData(null)}
+                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* ส่วน Render กราฟใน Modal เต็มจอ */}
+            <div id="fullscreen-chart-node" className="w-full bg-white p-2 rounded-2xl shrink-0 overflow-x-auto scrollbar-thin">
+              <div style={{ minWidth: `${Math.max((activeChartData.data?.length || 0) * 60, 360)}px`, height: '320px' }}>
+                <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                  {activeChartData.chartType === 'line' ? (
+                    <LineChart data={activeChartData.data} margin={{ top: 15, right: 15, left: -20, bottom: 25 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke="#64748B" 
+                        tickLine={false} 
+                        tickFormatter={(val) => val.replace(/\s*69|\s*2569|\s*2026/g, '')}
+                        interval={0} 
+                        angle={-20} 
+                        textAnchor="end" 
+                        style={{ fontSize: '9px' }} 
+                      />
+                      <YAxis stroke="#64748B" tickLine={false} style={{ fontSize: '10px' }} />
+                      <Tooltip contentStyle={{ backgroundColor: '#FFF', borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '11px' }} />
+                      <Legend verticalAlign="top" wrapperStyle={{ fontSize: '10px', paddingTop: '0px' }} />
+                      <Line type="monotone" dataKey="sold" name="ขายได้" stroke="#2563EB" strokeWidth={2.5} dot={{ r: 4 }} isAnimationActive={false} />
+                    </LineChart>
+                  ) : (
+                    <BarChart data={activeChartData.data} barCategoryGap="20%" margin={{ top: 15, right: 15, left: -20, bottom: 25 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke="#64748B" 
+                        tickLine={false} 
+                        tickFormatter={(val) => val.replace(/\s*69|\s*2569|\s*2026/g, '')}
+                        interval={0} 
+                        angle={-20} 
+                        textAnchor="end" 
+                        style={{ fontSize: '9px' }} 
+                      />
+                      <YAxis stroke="#64748B" tickLine={false} style={{ fontSize: '10px' }} />
+                      <Tooltip contentStyle={{ backgroundColor: '#FFF', borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '11px' }} />
+                      <Legend verticalAlign="top" wrapperStyle={{ fontSize: '10px', paddingBottom: '4px' }} />
+                      <Bar dataKey="sold" name="ขายได้" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+                      {activeChartData.data[0]?.remain !== undefined && (
+                        <Bar dataKey="remain" name="คงเหลือ" fill="#F59E0B" radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+                      )}
+                    </BarChart>
+                  )}
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         </div>
       )}

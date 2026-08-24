@@ -18,19 +18,9 @@ export const getTodayReport = async (reportDate) => {
   const targetDate = reportDate || getTodayThaiDate();
   try {
     const data = await sql`
-      SELECT 
-        r.product_id, 
-        r.seller_id, 
-        COALESCE(r.seller_name_snapshot, s.name) AS seller_name,
-        COALESCE(r.product_name_snapshot, p.name) AS product_name,
-        COALESCE(r.unit_snapshot, p.unit, 'ชิ้น') AS unit,
-        r.sent, 
-        r.sold, 
-        r.remain 
-      FROM reports r
-      LEFT JOIN sellers s ON r.seller_id = s.id
-      LEFT JOIN products p ON r.product_id = p.id
-      WHERE r.report_date = ${targetDate}::date
+      SELECT product_id, seller_id, sent, sold, remain 
+      FROM reports 
+      WHERE report_date = ${targetDate}::date
     `;
     return data || [];
   } catch (error) {
@@ -62,7 +52,7 @@ export const getLatestPreviousReports = async (reportDate) => {
 };
 
 /**
- * บันทึกรายงานประจำวันพร้อม Snapshot ชื่อผู้ฝาก ชื่อสินค้า และหน่วยนับ
+ * บันทึกหรืออัปเดตรายงานประจำวัน (UPSERT)
  */
 export const saveDailyReport = async (reportItems, reportDate) => {
   if (!reportItems || reportItems.length === 0) return [];
@@ -78,9 +68,6 @@ export const saveDailyReport = async (reportItems, reportDate) => {
     const insertPromises = reportItems.map((item) => {
       const sellerId = Number(item.seller_id);
       const productId = Number(item.product_id);
-      const sellerNameSnapshot = item.seller_name_snapshot ? String(item.seller_name_snapshot).trim() : null;
-      const productNameSnapshot = item.product_name_snapshot ? String(item.product_name_snapshot).trim() : null;
-      const unitSnapshot = item.unit_snapshot ? String(item.unit_snapshot).trim() : null;
       const sent = Number(item.sent) || 0;
       const sold = Number(item.sold) || 0;
       const remain = item.remain !== undefined && item.remain !== '' 
@@ -88,28 +75,8 @@ export const saveDailyReport = async (reportItems, reportDate) => {
         : (sent - sold);
 
       return sql`
-        INSERT INTO reports (
-          report_date, 
-          seller_id, 
-          product_id, 
-          seller_name_snapshot, 
-          product_name_snapshot, 
-          unit_snapshot,
-          sent, 
-          sold, 
-          remain
-        )
-        VALUES (
-          ${targetDate}::date, 
-          ${sellerId}, 
-          ${productId}, 
-          ${sellerNameSnapshot}, 
-          ${productNameSnapshot}, 
-          ${unitSnapshot},
-          ${sent}, 
-          ${sold}, 
-          ${remain}
-        )
+        INSERT INTO reports (report_date, seller_id, product_id, sent, sold, remain)
+        VALUES (${targetDate}::date, ${sellerId}, ${productId}, ${sent}, ${sold}, ${remain})
         RETURNING *
       `;
     });

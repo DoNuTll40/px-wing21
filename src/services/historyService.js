@@ -1,11 +1,11 @@
 import sql from '../lib/neon';
 
 /**
- * ดึงประวัติรายงานย้อนหลังแบบจำกัดจำนวนวัน (Default 10 วันล่าสุด)
+ * ดึงประวัติรายงานย้อนหลังแบบจำกัดจำนวนวัน (Default 7 วันล่าสุดสำหรับแถบเลื่อนด่วน)
  * @param {number} limitDays จำนวนวันที่ต้องการดึง
  * @param {number} offsetDays ข้ามไปกี่วัน
  */
-export const getReportHistoryGrouped = async (limitDays = 10, offsetDays = 0) => {
+export const getReportHistoryGrouped = async (limitDays = 7, offsetDays = 0) => {
   try {
     // 1. ดึงรายการวันที่เฉพาะตาม Limit/Offset
     const distinctDates = await sql`
@@ -19,7 +19,7 @@ export const getReportHistoryGrouped = async (limitDays = 10, offsetDays = 0) =>
 
     const dateList = distinctDates.map((d) => d.report_date);
 
-    // 2. ดึงข้อมูลรายงานเฉพาะวันที่อยู่ในช่วง
+    // 2. ดึงข้อมูลรายงานเฉพาะวันที่อยู่ในช่วง (ใช้ Snapshot ชื่อเดิมและหน่วยนับเดิม ณ วันนั้น)
     const data = await sql`
       SELECT 
         r.id,
@@ -28,10 +28,10 @@ export const getReportHistoryGrouped = async (limitDays = 10, offsetDays = 0) =>
         r.sold,
         r.remain,
         s.id AS seller_id,
-        s.name AS seller_name,
+        COALESCE(r.seller_name_snapshot, s.name, 'ไม่ระบุผู้ฝาก') AS seller_name,
         p.id AS product_id,
-        p.name AS product_name,
-        p.unit
+        COALESCE(r.product_name_snapshot, p.name) AS product_name,
+        COALESCE(r.unit_snapshot, p.unit, 'ชิ้น') AS unit
       FROM reports r
       LEFT JOIN sellers s ON r.seller_id = s.id
       LEFT JOIN products p ON r.product_id = p.id
@@ -63,6 +63,81 @@ export const getReportHistoryGrouped = async (limitDays = 10, offsetDays = 0) =>
     };
   } catch (error) {
     console.error('Error fetching grouped history:', error);
+    throw error;
+  }
+};
+
+/**
+ * ดึงรายการวันที่ทั้งหมดที่มีข้อมูลในระบบ (สำหรับ DatePicker ปฏิทิน)
+ */
+export const getAllAvailableDates = async () => {
+  try {
+    const rows = await sql`
+      SELECT DISTINCT TO_CHAR(report_date, 'YYYY-MM-DD') AS report_date
+      FROM reports
+      ORDER BY report_date DESC
+    `;
+    return rows.map((r) => r.report_date);
+  } catch (error) {
+    console.error('Error getting available dates:', error);
+    return [];
+  }
+};
+
+/**
+ * ดึงข้อมูลรายงานของวันที่ระบุเจาะจง (เมื่อเลือกจาก DatePicker ใช้ Snapshot ชื่อและหน่วยเดิม)
+ */
+export const getReportBySpecificDate = async (dateString) => {
+  try {
+    const data = await sql`
+      SELECT 
+        r.id,
+        TO_CHAR(r.report_date, 'YYYY-MM-DD') AS formatted_date,
+        r.sent,
+        r.sold,
+        r.remain,
+        s.id AS seller_id,
+        COALESCE(r.seller_name_snapshot, s.name, 'ไม่ระบุผู้ฝาก') AS seller_name,
+        p.id AS product_id,
+        COALESCE(r.product_name_snapshot, p.name) AS product_name,
+        COALESCE(r.unit_snapshot, p.unit, 'ชิ้น') AS unit
+      FROM reports r
+      LEFT JOIN sellers s ON r.seller_id = s.id
+      LEFT JOIN products p ON r.product_id = p.id
+      WHERE DATE(r.report_date) = ${dateString}::date
+      ORDER BY s.sort_order ASC, p.sort_order ASC
+    `;
+
+    const dayGroup = {};
+    data.forEach((item) => {
+      const sellerKey = item.seller_name || 'ไม่ระบุผู้ฝาก';
+      if (!dayGroup[sellerKey]) {
+        dayGroup[sellerKey] = [];
+      }
+      dayGroup[sellerKey].push(item);
+    });
+
+    return dayGroup;
+  } catch (error) {
+    console.error('Error fetching specific date report:', error);
+    throw error;
+  }
+};
+
+/**
+ * ลบประวัติรายงานตามวันที่ระบุ (ต้องมีสิทธิ์ Admin)
+ * @param {string} reportDate วันที่ในรูปแบบ YYYY-MM-DD
+ */
+export const deleteReportByDate = async (reportDate) => {
+  try {
+    const result = await sql`
+      DELETE FROM reports 
+      WHERE DATE(report_date) = ${reportDate}::date
+      RETURNING id
+    `;
+    return result;
+  } catch (error) {
+    console.error('Error deleting report by date:', error);
     throw error;
   }
 };

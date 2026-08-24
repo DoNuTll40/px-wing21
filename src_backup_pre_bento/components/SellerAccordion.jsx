@@ -5,14 +5,14 @@ import ProductCard from './ProductCard';
 
 export default function SellerAccordion({ 
   seller, 
-  products = [], 
+  products, 
   onProductChange, 
   onDeleteProduct, 
-  onDeleteSeller, 
-  onOpenAddProduct, 
-  onUpdateSeller, 
-  onEditProduct,
-  dragHandleProps 
+  onDeleteSeller,
+  onOpenAddProduct,
+  onUpdateSeller,
+  onUpdateProduct,
+  dragHandleProps
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -56,36 +56,34 @@ export default function SellerAccordion({
   };
 
   return (
-    <div className="bg-white border border-gray-200/90 hover:border-amber-300 rounded-2xl mb-3 shadow-2xs transition-all overflow-hidden group/seller">
-      {/* Header Bar */}
+    <div className="bg-white border border-gray-200/90 hover:border-gray-300 rounded-2xl mb-3 shadow-2xs transition-all overflow-hidden group/seller">
+      {/* Header */}
       <div 
         onClick={() => !isEditingName && setIsOpen(!isOpen)}
-        className="flex justify-between items-center px-3.5 py-3 bg-gray-50/90 hover:bg-amber-50/30 border-b border-gray-100 cursor-pointer select-none transition-colors"
+        className="flex justify-between items-center px-3.5 py-3 bg-gray-50/90 hover:bg-gray-100/60 border-b border-gray-100 cursor-pointer select-none transition-colors"
       >
         <div className="flex items-center gap-1.5 flex-1 mr-2 min-w-0" onClick={(e) => e.stopPropagation()}>
           {/* 🟢 ปุ่ม Grip สำหรับแตะลากสลับลำดับ */}
           <div 
             {...dragHandleProps}
-            className="p-1 text-gray-400 hover:text-amber-600 cursor-grab active:cursor-grabbing touch-none shrink-0"
+            className="p-1 text-gray-400 hover:text-gray-700 cursor-grab active:cursor-grabbing touch-none shrink-0"
             title="ลากเพื่อเปลี่ยนลำดับ"
           >
             <GripVertical size={18} />
           </div>
 
-          {/* ลูกศรเปิด/ปิด Accordion */}
           {!isEditingName && (
             <motion.span 
               onClick={() => setIsOpen(!isOpen)}
               animate={{ rotate: isOpen ? 180 : 0 }}
               transition={{ duration: 0.2 }}
-              className="text-gray-400 hover:text-amber-600 p-0.5 cursor-pointer shrink-0"
-              title="เปิด/ปิดรายการสินค้า"
+              className="text-gray-400 hover:text-gray-700 p-0.5 cursor-pointer shrink-0"
             >
               <ChevronDown size={18} />
             </motion.span>
           )}
 
-          {/* ชื่อผู้ฝากขาย - แตะที่ชื่อเพื่อแก้ไข Inline Edit ได้ทันที */}
+          {/* ชื่อผู้ฝากขาย - Inline Edit */}
           {isEditingName ? (
             <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
               <input
@@ -95,14 +93,14 @@ export default function SellerAccordion({
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={handleKeyDown}
                 style={{ width: `${Math.max(name.length, 4) + 3}ch` }}
-                className="text-base font-extrabold text-gray-800 bg-amber-50 border-b-2 border-amber-500 focus:outline-none px-2 py-0.5 rounded-t-sm transition-all max-w-[200px] disabled:opacity-50"
+                className="text-base font-extrabold text-gray-800 bg-blue-50 border-b-2 border-blue-500 focus:outline-none px-2 py-0.5 rounded-t-sm transition-all max-w-[200px] disabled:opacity-50"
                 autoFocus
               />
               <button
                 type="button"
                 onClick={handleSaveName}
                 disabled={isSaving}
-                className="bg-emerald-600 active:bg-emerald-700 hover:bg-emerald-700 text-white text-xs px-2.5 py-1 rounded-md shadow-2xs font-bold disabled:opacity-50 cursor-pointer"
+                className="bg-green-600 active:bg-green-700 hover:bg-green-700 text-white text-xs px-2.5 py-1 rounded-md shadow-2xs font-bold disabled:opacity-50 cursor-pointer"
                 title="บันทึก"
               >
                 {isSaving ? '...' : '✓'}
@@ -120,16 +118,16 @@ export default function SellerAccordion({
           ) : (
             <div className="flex items-center gap-1.5 min-w-0">
               <h2 
-                onClick={() => setIsEditingName(true)}
-                className="font-extrabold text-gray-800 text-sm sm:text-base hover:text-amber-700 transition-colors cursor-pointer"
-                title="แตะเพื่อแก้ไขชื่อผู้ฝากขาย"
+                onClick={() => setIsOpen(!isOpen)}
+                className="font-extrabold text-gray-800 text-base hover:text-blue-600 transition-colors cursor-pointer truncate max-w-[170px] sm:max-w-[240px]"
+                title="คลิกเพื่อเปิด/ปิดรายการสินค้า"
               >
                 {seller.name}
               </h2>
               <button
                 type="button"
                 onClick={() => setIsEditingName(true)}
-                className="text-gray-300 hover:text-amber-600 p-0.5 rounded opacity-0 group-hover/seller:opacity-100 transition-opacity cursor-pointer hidden sm:inline-block shrink-0"
+                className="text-gray-300 hover:text-blue-600 p-0.5 rounded opacity-0 group-hover/seller:opacity-100 transition-opacity cursor-pointer hidden sm:inline-block"
                 title="แก้ไขชื่อผู้ฝากขาย"
               >
                 <Edit2 size={13} />
@@ -138,25 +136,22 @@ export default function SellerAccordion({
           )}
 
           {!isEditingName && (
-            <span className="text-[11px] font-semibold bg-gray-200/80 text-gray-700 px-2 py-0.5 rounded-full shrink-0">
+            <span className="text-[11px] font-semibold bg-gray-200/80 text-gray-700 px-2.5 py-0.5 rounded-full shrink-0">
               {products.length} รายการ
             </span>
           )}
         </div>
 
-        {/* ฝั่งขวา: ปุ่มเพิ่มสินค้า และ ลบร้านค้า */}
         {!isEditingName && (
           <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
             <button
-              type="button"
               onClick={() => onOpenAddProduct(seller.id)}
-              className="text-xs text-amber-800 hover:text-amber-900 font-bold flex items-center gap-1 bg-amber-50/80 hover:bg-amber-100 border border-amber-200/70 px-2.5 py-1.5 rounded-xl active:scale-95 transition-all cursor-pointer"
+              className="text-xs text-blue-600 hover:text-blue-700 font-bold flex items-center gap-1 bg-blue-50/80 hover:bg-blue-100 px-2.5 py-1.5 rounded-xl active:scale-95 transition-all cursor-pointer"
             >
               <Plus size={14} />
               <span>เพิ่มสินค้า</span>
             </button>
             <button
-              type="button"
               onClick={() => onDeleteSeller(seller.id)}
               className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors cursor-pointer"
               title="ลบผู้ฝากขาย"
@@ -177,21 +172,19 @@ export default function SellerAccordion({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="p-3 bg-amber-50/15 space-y-2">
+            <div className="p-3.5 bg-gray-50/40">
               {products.length === 0 ? (
                 <p className="text-xs text-center text-gray-400 py-4">ยังไม่มีสินค้า กด "+ เพิ่มสินค้า" ด้านบน</p>
               ) : (
-                <AnimatePresence mode="popLayout" initial={false}>
-                  {products.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      onChange={onProductChange}
-                      onDelete={onDeleteProduct}
-                      onEditProduct={onEditProduct}
-                    />
-                  ))}
-                </AnimatePresence>
+                products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onChange={onProductChange}
+                    onDelete={onDeleteProduct}
+                    onUpdateProduct={onUpdateProduct}
+                  />
+                ))
               )}
             </div>
           </motion.div>
@@ -200,3 +193,4 @@ export default function SellerAccordion({
     </div>
   );
 }
+

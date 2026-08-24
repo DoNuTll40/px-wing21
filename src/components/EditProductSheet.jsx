@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Sparkles, CheckCircle2, AlertCircle, X, PackagePlus } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle2, X, Package } from 'lucide-react';
 
-export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
+export default function EditProductSheet({ isOpen, onClose, onSave, product }) {
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('ชิ้น');
   const [isCustomUnit, setIsCustomUnit] = useState(false);
@@ -14,7 +14,24 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
 
   const PRESET_UNITS = ['ชิ้น', 'กล่อง', 'ถุง', 'แก้ว', 'ขวด', 'ชุด'];
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (product && isOpen) {
+      setName(product.name || '');
+      const currentUnit = product.unit || 'ชิ้น';
+      if (PRESET_UNITS.includes(currentUnit)) {
+        setUnit(currentUnit);
+        setIsCustomUnit(false);
+        setCustomUnit('');
+      } else {
+        setUnit(currentUnit);
+        setIsCustomUnit(true);
+        setCustomUnit(currentUnit);
+      }
+      setAiStatus(null);
+    }
+  }, [product, isOpen]);
+
+  if (!isOpen || !product) return null;
 
   const handleCheckSpell = async () => {
     if (!name.trim() || isChecking) return;
@@ -89,12 +106,7 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
       ? (customUnit.trim() || 'ชิ้น') 
       : (unit || 'ชิ้น');
 
-    onAdd(sellerId, name.trim(), finalUnit);
-    setName('');
-    setUnit('ชิ้น');
-    setIsCustomUnit(false);
-    setCustomUnit('');
-    setAiStatus(null);
+    onSave(product.id, name.trim(), finalUnit);
     onClose();
   };
 
@@ -112,13 +124,13 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
           <div className="flex justify-between items-center pb-3 mb-3.5 border-b border-gray-100">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80">
-                <PackagePlus size={18} />
+                <Package size={18} />
               </div>
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
-                  เพิ่มรายการสินค้า
+                  แก้ไขรายการสินค้า
                 </h3>
-                <p className="text-[11px] text-gray-400">ระบุชื่อสินค้าและหน่วยนับ</p>
+                <p className="text-[11px] text-gray-400">แก้ไขชื่อสินค้าและหน่วยนับ</p>
               </div>
             </div>
 
@@ -208,7 +220,7 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
               )}
             </div>
 
-            {/* หน่วยนับ (Preset + ตัวเลือกอื่นๆ) */}
+            {/* หน่วยนับ */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-gray-700">หน่วยนับ</label>
@@ -238,7 +250,7 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
                   );
                 })}
 
-                {/* ปุ่มตัวเลือก "อื่นๆ" */}
+                {/* ปุ่มตัวเลือก "อื่นๆ" (เอารูปมือออก) */}
                 <button
                   type="button"
                   onClick={handleSelectOther}
@@ -286,7 +298,7 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
                 disabled={!name.trim()}
                 className="flex-1 py-2.5 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 disabled:opacity-40 rounded-xl shadow-md shadow-amber-500/20 transition-all cursor-pointer"
               >
-                เพิ่มสินค้า
+                บันทึกการแก้ไข
               </button>
             </div>
           </form>

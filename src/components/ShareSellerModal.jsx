@@ -1,42 +1,44 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  X, 
-  Share2, 
-  Copy, 
-  Check, 
-  ExternalLink, 
-  Sliders, 
-  Store, 
-  Package, 
-  TrendingUp, 
-  Calendar, 
-  Eye, 
-  ShieldCheck 
+import {
+  X,
+  Share2,
+  Copy,
+  Check,
+  ExternalLink,
+  Sliders,
+  Store,
+  Package,
+  TrendingUp,
+  Calendar,
+  Eye,
+  ShieldCheck,
+  Clock
 } from 'lucide-react';
 import { copyToClipboard } from '../utils/clipboard';
 import { vibrateSuccess } from '../utils/haptics';
+import { createShareToken } from '../utils/shareCrypto';
 
 export default function ShareSellerModal({ isOpen, onClose, seller }) {
   const [showKpi, setShowKpi] = useState(true);
   const [showProducts, setShowProducts] = useState(true);
   const [showTrend, setShowTrend] = useState(true);
   const [allowDate, setAllowDate] = useState(true);
+  const [expireDays, setExpireDays] = useState(7); // ค่าเริ่มต้น: 7 วัน
   const [isCopied, setIsCopied] = useState(false);
 
   const shareUrl = useMemo(() => {
     if (!seller) return '';
     const origin = window.location.origin;
-    const params = new URLSearchParams();
 
-    if (!showKpi) params.set('kpi', '0');
-    if (!showProducts) params.set('prod', '0');
-    if (!showTrend) params.set('trend', '0');
-    if (!allowDate) params.set('date', '0');
+    const token = createShareToken(
+      seller.id,
+      { kpi: showKpi, prod: showProducts, trend: showTrend, date: allowDate },
+      expireDays
+    );
 
-    const queryString = params.toString();
-    return `${origin}/share/${seller.id}${queryString ? `?${queryString}` : ''}`;
-  }, [seller, showKpi, showProducts, showTrend, allowDate]);
+    return `${origin}/share/${token}`;
+  }, [seller, showKpi, showProducts, showTrend, allowDate, expireDays]);
 
   if (!isOpen || !seller) return null;
 
@@ -73,7 +75,7 @@ export default function ShareSellerModal({ isOpen, onClose, seller }) {
                 <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
                   แชร์รายงานส่วนบุคคล
                 </h3>
-                <p className="text-[11px] text-gray-400">สร้างลิงก์ให้ผู้ฝากดูยอดเฉพาะของตนเอง</p>
+                <p className="text-[11px] text-gray-400">สร้างลิงก์แบบเข้ารหัสและกำหนดอายุได้</p>
               </div>
             </div>
 
@@ -95,20 +97,19 @@ export default function ShareSellerModal({ isOpen, onClose, seller }) {
               <div className="text-xs font-bold text-gray-900 truncate">{seller.name}</div>
               <div className="text-[10px] text-amber-800 flex items-center gap-1">
                 <ShieldCheck size={11} className="text-emerald-600" />
-                <span>เห็นเฉพาะข้อมูลของตนเอง ปลอดภัย 100%</span>
+                <span>เข้ารหัสความปลอดภัยขั้นสูง (AES-grade Token)</span>
               </div>
             </div>
           </div>
 
           {/* View Options Customizer */}
-          <div className="space-y-2.5 mb-5">
+          <div className="space-y-2.5 mb-4">
             <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
               <Sliders size={13} className="text-amber-600" />
               <span>เลือกสิ่งที่ต้องการให้ผู้ฝากมองเห็นในลิงก์</span>
             </div>
 
             <div className="space-y-2 bg-gray-50/80 p-3 rounded-2xl border border-gray-200/80">
-              {/* Option 1: สรุปยอดรวม */}
               <label className="flex items-center justify-between cursor-pointer select-none">
                 <span className="text-xs font-medium text-gray-800 flex items-center gap-2">
                   <TrendingUp size={14} className="text-amber-600" />
@@ -122,7 +123,6 @@ export default function ShareSellerModal({ isOpen, onClose, seller }) {
                 />
               </label>
 
-              {/* Option 2: รายละเอียดสินค้า */}
               <label className="flex items-center justify-between cursor-pointer select-none">
                 <span className="text-xs font-medium text-gray-800 flex items-center gap-2">
                   <Package size={14} className="text-amber-600" />
@@ -136,7 +136,6 @@ export default function ShareSellerModal({ isOpen, onClose, seller }) {
                 />
               </label>
 
-              {/* Option 3: กราฟ 7 วัน */}
               <label className="flex items-center justify-between cursor-pointer select-none">
                 <span className="text-xs font-medium text-gray-800 flex items-center gap-2">
                   <Eye size={14} className="text-amber-600" />
@@ -150,7 +149,6 @@ export default function ShareSellerModal({ isOpen, onClose, seller }) {
                 />
               </label>
 
-              {/* Option 4: เลือกดูประวัติ */}
               <label className="flex items-center justify-between cursor-pointer select-none">
                 <span className="text-xs font-medium text-gray-800 flex items-center gap-2">
                   <Calendar size={14} className="text-amber-600" />
@@ -166,6 +164,35 @@ export default function ShareSellerModal({ isOpen, onClose, seller }) {
             </div>
           </div>
 
+          {/* ⏰ Expiration Option */}
+          <div className="mb-4 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
+              <Clock size={13} className="text-amber-600" />
+              <span>อายุการใช้งานของลิงก์</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5 bg-gray-50/80 p-1.5 rounded-2xl border border-gray-200/80">
+              {[
+                // { label: 'หมดอายุทันที (Dev)', value: -1 },
+                { label: '1 วัน', value: 1 },
+                { label: '3 วัน', value: 3 },
+                { label: '7 วัน', value: 7 },
+                { label: 'ไม่มีหมดอายุ', value: null },
+              ].map((opt) => (
+                <button
+                  key={String(opt.value)}
+                  type="button"
+                  onClick={() => setExpireDays(opt.value)}
+                  className={`py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${expireDays === opt.value
+                    ? 'bg-amber-500 text-white shadow-2xs'
+                    : 'text-gray-600 hover:bg-gray-200/60'
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Share Link Preview Box */}
           <div className="mb-5 space-y-1.5">
             <label className="text-xs font-bold text-gray-700">ลิงก์สำหรับส่งให้ผู้ฝากขาย</label>
@@ -174,7 +201,7 @@ export default function ShareSellerModal({ isOpen, onClose, seller }) {
                 type="text"
                 readOnly
                 value={shareUrl}
-                className="flex-1 bg-transparent text-xs text-gray-700 focus:outline-none select-all truncate font-medium"
+                className="flex-1 bg-transparent text-xs text-gray-700 focus:outline-none select-all truncate font-mono"
               />
               <button
                 type="button"
@@ -200,11 +227,10 @@ export default function ShareSellerModal({ isOpen, onClose, seller }) {
             <button
               type="button"
               onClick={handleCopy}
-              className={`flex-1 py-2.5 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                isCopied 
-                  ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/25' 
-                  : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-amber-500/25'
-              }`}
+              className={`flex-1 py-2.5 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${isCopied
+                ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/25'
+                : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-amber-500/25'
+                }`}
             >
               {isCopied ? <Check size={16} /> : <Copy size={16} />}
               <span>{isCopied ? 'คัดลอกลิงก์แล้ว!' : 'คัดลอกลิงก์'}</span>

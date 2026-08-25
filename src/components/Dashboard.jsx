@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Package, 
-  ShoppingBag, 
-  Users, 
-  ArrowLeft, 
+import {
+  BarChart3,
+  TrendingUp,
+  Package,
+  ShoppingBag,
+  Users,
+  ArrowLeft,
   RefreshCw,
   Trophy,
   Calendar,
@@ -53,13 +53,14 @@ export default function Dashboard({ onBack }) {
   };
 
   useEffect(() => {
+    document.title = 'Dashboard - PX Daily Report';
     loadData();
   }, []);
 
   const toggleSeller = (sellerId) => {
     setOpenSellers((prev) => {
-      const isCurrentlyOpen = prev[sellerId] !== undefined 
-        ? prev[sellerId] 
+      const isCurrentlyOpen = prev[sellerId] !== undefined
+        ? prev[sellerId]
         : (prev.default_first && sellerStats[0]?.seller_id === sellerId);
       return {
         ...prev,
@@ -93,8 +94,8 @@ export default function Dashboard({ onBack }) {
   const weeklyTrend = Array.isArray(data?.weeklyTrend) ? data.weeklyTrend : [];
   const todayDate = data?.todayDate || '';
 
-  const sellThroughRate = summary.totalSent > 0 
-    ? Math.round((summary.totalSold / summary.totalSent) * 100) 
+  const sellThroughRate = summary.totalSent > 0
+    ? Math.round((summary.totalSold / summary.totalSent) * 100)
     : 0;
 
   // คำนวณค่าสูงสุดสำหรับสเกลกราฟ 7 วัน
@@ -206,7 +207,7 @@ export default function Dashboard({ onBack }) {
                   {sellThroughRate}%
                 </div>
                 <div className="w-full bg-amber-100 h-2 rounded-full mt-2 overflow-hidden">
-                  <div 
+                  <div
                     className="bg-amber-500 h-full rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(sellThroughRate, 100)}%` }}
                   />
@@ -235,7 +236,7 @@ export default function Dashboard({ onBack }) {
 
           {/* 🌟 Main Responsive Grid (Desktop: 2-Cols on Left, 1-Col on Right; Mobile: 1 Col Stacked) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            
+
             {/* 👈 Left Column (Span 2 on Desktop): ประสิทธิภาพผู้ฝากขายวันนี้ */}
             <div className="lg:col-span-2 bg-white rounded-3xl p-4 border border-amber-200/90 shadow-2xs space-y-3">
               <div className="flex items-center justify-between border-b border-amber-100 pb-2.5">
@@ -257,14 +258,14 @@ export default function Dashboard({ onBack }) {
                   <p className="text-xs text-center text-gray-400 py-6">ยังไม่มีข้อมูลรายงานของวันนี้</p>
                 ) : (
                   sellerStats.map((s, idx) => {
-                    const isExpanded = openSellers[s.seller_id] !== undefined 
-                      ? openSellers[s.seller_id] 
+                    const isExpanded = openSellers[s.seller_id] !== undefined
+                      ? openSellers[s.seller_id]
                       : (idx === 0 && openSellers.default_first && s.products?.length > 0);
                     const rate = s.total_sent > 0 ? Math.round((s.total_sold / s.total_sent) * 100) : 0;
                     const products = Array.isArray(s.products) ? s.products : [];
 
                     return (
-                      <div 
+                      <div
                         key={s.seller_id}
                         className="border border-amber-100/90 rounded-2xl overflow-hidden bg-white shadow-2xs"
                       >
@@ -302,8 +303,8 @@ export default function Dashboard({ onBack }) {
 
                           {/* Horizontal Progress Bar */}
                           <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden flex mt-2">
-                            <div 
-                              className="bg-emerald-500 h-full transition-all duration-300 rounded-full" 
+                            <div
+                              className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
                               style={{ width: `${Math.min(rate, 100)}%` }}
                             />
                           </div>
@@ -356,20 +357,19 @@ export default function Dashboard({ onBack }) {
                     <p className="text-xs text-gray-400 text-center py-4 italic">ยังไม่มียอดขายในวันนี้</p>
                   ) : (
                     topProducts.map((item, index) => (
-                      <div 
+                      <div
                         key={item.product_id}
                         className="flex items-center justify-between gap-2 p-3 rounded-2xl border border-amber-100/80 bg-white shadow-2xs text-xs"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 shadow-2xs ${
-                            index === 0
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 shadow-2xs ${index === 0
                               ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-white font-black shadow-amber-500/20'
                               : index === 1
-                              ? 'bg-amber-100/90 text-amber-900 border border-amber-200 font-black'
-                              : index === 2
-                              ? 'bg-amber-50 text-amber-800 border border-amber-200/80 font-black'
-                              : 'bg-gray-100/90 text-gray-600 border border-gray-200 font-bold'
-                          }`}>
+                                ? 'bg-amber-100/90 text-amber-900 border border-amber-200 font-black'
+                                : index === 2
+                                  ? 'bg-amber-50 text-amber-800 border border-amber-200/80 font-black'
+                                  : 'bg-gray-100/90 text-gray-600 border border-gray-200 font-bold'
+                            }`}>
                             {index + 1}
                           </div>
                           <div className="min-w-0">
@@ -411,22 +411,20 @@ export default function Dashboard({ onBack }) {
                   <div className="flex items-center bg-amber-50/80 p-0.5 rounded-xl border border-amber-200 text-xs">
                     <button
                       onClick={() => setTrendViewMode('chart')}
-                      className={`flex items-center gap-1 px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                        trendViewMode === 'chart' 
-                          ? 'bg-amber-500 text-white shadow-2xs' 
+                      className={`flex items-center gap-1 px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${trendViewMode === 'chart'
+                          ? 'bg-amber-500 text-white shadow-2xs'
                           : 'text-amber-900 hover:text-amber-950'
-                      }`}
+                        }`}
                     >
                       <BarChart2 size={12} />
                       <span>กราฟ</span>
                     </button>
                     <button
                       onClick={() => setTrendViewMode('list')}
-                      className={`flex items-center gap-1 px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                        trendViewMode === 'list' 
-                          ? 'bg-amber-500 text-white shadow-2xs' 
+                      className={`flex items-center gap-1 px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${trendViewMode === 'list'
+                          ? 'bg-amber-500 text-white shadow-2xs'
                           : 'text-amber-900 hover:text-amber-950'
-                      }`}
+                        }`}
                     >
                       <List size={12} />
                       <span>ตาราง</span>
@@ -454,26 +452,24 @@ export default function Dashboard({ onBack }) {
                         const isNearLast = index === weeklyTrend.length - 2;
 
                         return (
-                          <div 
-                            key={t.date} 
+                          <div
+                            key={t.date}
                             className="flex-1 flex flex-col items-center justify-end h-full relative group cursor-pointer"
                             onMouseEnter={() => setActiveTooltipDate(t.date)}
                             onMouseLeave={() => setActiveTooltipDate(null)}
                             onClick={() => setActiveTooltipDate(activeTooltipDate === t.date ? null : t.date)}
                           >
                             {/* Floating Tooltip Box (Smart Responsive Alignment) */}
-                            <div 
-                              className={`absolute -top-16 bg-gray-900/95 text-white text-[10px] py-1.5 px-2.5 rounded-xl shadow-xl z-30 pointer-events-none transition-all duration-200 whitespace-nowrap border border-gray-700 ${
-                                isLast
+                            <div
+                              className={`absolute -top-16 bg-gray-900/95 text-white text-[10px] py-1.5 px-2.5 rounded-xl shadow-xl z-30 pointer-events-none transition-all duration-200 whitespace-nowrap border border-gray-700 ${isLast
                                   ? 'right-0 left-auto translate-x-0'
                                   : isFirst
-                                  ? 'left-0 translate-x-0'
-                                  : isNearLast
-                                  ? 'right-[-16px] sm:left-1/2 sm:-translate-x-1/2 sm:right-auto'
-                                  : 'left-1/2 -translate-x-1/2'
-                              } ${
-                                isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
-                              }`}
+                                    ? 'left-0 translate-x-0'
+                                    : isNearLast
+                                      ? 'right-[-16px] sm:left-1/2 sm:-translate-x-1/2 sm:right-auto'
+                                      : 'left-1/2 -translate-x-1/2'
+                                } ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
+                                }`}
                             >
                               <div className="font-bold text-amber-300 pb-0.5 border-b border-gray-700 text-center text-[11px]">
                                 {formatDateThai(t.date)}
@@ -486,35 +482,32 @@ export default function Dashboard({ onBack }) {
                                 <span className="text-purple-300">เหลือ {remain}</span>
                               </div>
                               {/* Tooltip Arrow */}
-                              <div className={`absolute top-full border-4 border-transparent border-t-gray-900/95 ${
-                                isLast
+                              <div className={`absolute top-full border-4 border-transparent border-t-gray-900/95 ${isLast
                                   ? 'right-4 left-auto'
                                   : isFirst
-                                  ? 'left-4'
-                                  : isNearLast
-                                  ? 'right-6 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto'
-                                  : 'left-1/2 -translate-x-1/2'
-                              }`} />
+                                    ? 'left-4'
+                                    : isNearLast
+                                      ? 'right-6 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto'
+                                      : 'left-1/2 -translate-x-1/2'
+                                }`} />
                             </div>
 
                             {/* Top Percentage Label */}
-                            <span className={`text-[10px] font-bold mb-1 transition-colors ${
-                              isSelected ? 'text-amber-700 scale-110' : 'text-gray-600'
-                            }`}>
+                            <span className={`text-[10px] font-bold mb-1 transition-colors ${isSelected ? 'text-amber-700 scale-110' : 'text-gray-600'
+                              }`}>
                               {rate}%
                             </span>
 
                             {/* Capsule Column Track (Rounded-2xl Cream Track) */}
-                            <div className={`w-full max-w-[28px] h-24 bg-amber-100/60 rounded-xl overflow-hidden flex flex-col justify-end relative transition-all ${
-                              isSelected ? 'ring-2 ring-amber-500 scale-105 shadow-md' : 'group-hover:ring-1 group-hover:ring-amber-400'
-                            }`}>
+                            <div className={`w-full max-w-[28px] h-24 bg-amber-100/60 rounded-xl overflow-hidden flex flex-col justify-end relative transition-all ${isSelected ? 'ring-2 ring-amber-500 scale-105 shadow-md' : 'group-hover:ring-1 group-hover:ring-amber-400'
+                              }`}>
                               {/* Sent Height Yellow Fill */}
-                              <div 
+                              <div
                                 className="w-full bg-amber-400 rounded-xl overflow-hidden flex flex-col justify-end transition-all duration-300"
                                 style={{ height: `${barFillPercent}%` }}
                               >
                                 {/* Sold Height Emerald Fill */}
-                                <div 
+                                <div
                                   className="w-full bg-emerald-500 rounded-xl transition-all duration-500"
                                   style={{ height: `${Math.min(Math.round(soldRatio * 100), 100)}%` }}
                                 />
@@ -522,9 +515,8 @@ export default function Dashboard({ onBack }) {
                             </div>
 
                             {/* Bottom Date Label */}
-                            <span className={`text-[10px] mt-1.5 font-bold transition-colors ${
-                              isSelected ? 'text-amber-900 font-black' : 'text-gray-500'
-                            }`}>
+                            <span className={`text-[10px] mt-1.5 font-bold transition-colors ${isSelected ? 'text-amber-900 font-black' : 'text-gray-500'
+                              }`}>
                               {t.date ? t.date.split('-').slice(1).reverse().join('/') : ''}
                             </span>
                           </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, useMotionValue, useTransform, useAnimation } from 'framer-motion';
-import { ArrowLeftRight, AlertCircle, Trash2, Edit2 } from 'lucide-react';
+import { ArrowLeftRight, AlertCircle, Trash2, Edit2, Gift } from 'lucide-react';
 import { vibrateWarning } from '../utils/haptics';
 
 export default function ProductCard({ product, onChange, onDelete, onEditProduct }) {
@@ -17,15 +17,56 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
   const soldNum = Number(product.sold) || 0;
   const remainNum = Number(product.remain) || 0;
 
-  const prevRemain = product.prev_remain !== undefined && product.prev_remain !== null 
-    ? Number(product.prev_remain) 
+  // สถานะ 1 แถม 1 และจำนวนของแถม
+  const isPromoActive = Boolean(product.is_promo);
+  const freeQty = Number(product.free_qty) || 0;
+  const originalSent = product.original_sent !== undefined && product.original_sent !== null
+    ? Number(product.original_sent)
+    : sentNum;
+
+  const prevRemain = product.prev_remain !== undefined && product.prev_remain !== null
+    ? Number(product.prev_remain)
     : null;
 
   const isSoldExceeded = product.sent !== '' && product.sold !== '' && soldNum > sentNum;
   const isRemainExceeded = product.sent !== '' && product.remain !== '' && remainNum > sentNum;
   const hasError = isSoldExceeded || isRemainExceeded;
 
-  // ทำการลบสินค้าทันทีพร้อม animation
+  // ฟังก์ชันเปิด/ปิด โปรโมชั่น 1 แถม 1
+  const togglePromo = () => {
+    if (!isPromoActive) {
+      // 🟢 เปิดโปร: คำนวณของแถมจากของที่เหลืออยู่ปัจจุบัน
+      const currentRemain = remainNum;
+      if (currentRemain <= 1) return; // เหลือน้อยกว่า 2 ชิ้น จัด 1 แถม 1 ไม่ได้
+
+      const promoFree = Math.floor(currentRemain / 2);
+      const newSent = Math.max(0, sentNum - promoFree);
+      const newRemain = currentRemain - promoFree;
+
+      onChange(product.id, {
+        ...product,
+        is_promo: true,
+        original_sent: sentNum,
+        free_qty: promoFree,
+        sent: newSent,
+        remain: newRemain,
+      });
+    } else {
+      // 🔴 ปิดโปร: คืนค่ายอดส่งและยอดเหลือกลับเป็นค่าเดิม
+      const restoredSent = originalSent;
+      const restoredRemain = remainNum + freeQty;
+
+      onChange(product.id, {
+        ...product,
+        is_promo: false,
+        original_sent: null,
+        free_qty: 0,
+        sent: restoredSent,
+        remain: restoredRemain,
+      });
+    }
+  };
+
   const handleDelete = async () => {
     if (isDeleting) return;
     setIsDeleting(true);
@@ -37,7 +78,6 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
     });
     if (onDelete) {
       const success = await onDelete(product.id);
-      // หากลบไม่สำเร็จ (เช่น ติดประวัติรายงานย้อนหลัง) ให้เด้งกลับมาแสดงตามเดิม
       if (!success) {
         controls.start({ x: 0, opacity: 1, transition: { duration: 0.25, ease: 'easeOut' } });
       }
@@ -55,7 +95,14 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
 
   const toggleCalcMode = () => {
     setCalcMode((prev) => (prev === 'AUTO_REMAIN' ? 'AUTO_SELL' : 'AUTO_REMAIN'));
-    onChange(product.id, { ...product, sold: '', remain: '' });
+    onChange(product.id, {
+      ...product,
+      sold: '',
+      remain: '',
+      is_promo: false,
+      original_sent: null,
+      free_qty: 0
+    });
   };
 
   const handleSentChange = (e) => {
@@ -63,10 +110,24 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
     const newSentNum = Number(val) || 0;
     if (calcMode === 'AUTO_REMAIN') {
       const remainVal = val === '' ? '' : Math.max(0, newSentNum - soldNum);
-      onChange(product.id, { ...product, sent: val, remain: remainVal });
+      onChange(product.id, {
+        ...product,
+        sent: val,
+        remain: remainVal,
+        is_promo: false,
+        original_sent: null,
+        free_qty: 0
+      });
     } else {
       const soldVal = val === '' ? '' : Math.max(0, newSentNum - remainNum);
-      onChange(product.id, { ...product, sent: val, sold: soldVal });
+      onChange(product.id, {
+        ...product,
+        sent: val,
+        sold: soldVal,
+        is_promo: false,
+        original_sent: null,
+        free_qty: 0
+      });
     }
   };
 
@@ -74,18 +135,32 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
     const val = e.target.value;
     const newSoldNum = Number(val) || 0;
     const remainVal = val === '' && product.sent === '' ? '' : Math.max(0, sentNum - newSoldNum);
-    onChange(product.id, { ...product, sold: val, remain: remainVal });
+    onChange(product.id, {
+      ...product,
+      sold: val,
+      remain: remainVal,
+      is_promo: false,
+      original_sent: null,
+      free_qty: 0
+    });
   };
 
   const handleRemainChange = (e) => {
     const val = e.target.value;
     const newRemainNum = Number(val) || 0;
     const soldVal = val === '' && product.sent === '' ? '' : Math.max(0, sentNum - newRemainNum);
-    onChange(product.id, { ...product, remain: val, sold: soldVal });
+    onChange(product.id, {
+      ...product,
+      remain: val,
+      sold: soldVal,
+      is_promo: false,
+      original_sent: null,
+      free_qty: 0
+    });
   };
 
   return (
-    <motion.div 
+    <motion.div
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -93,11 +168,11 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
       className="relative overflow-hidden rounded-xl mb-2.5 touch-pan-y group"
     >
       {/* พื้นหลังสีแดงฝั่งขวา (ปุ่มลบเมื่อรูดบนมือถือ) */}
-      <div 
+      <div
         onClick={handleDelete}
         className="absolute inset-y-0 right-0 w-full bg-red-500 hover:bg-red-600 active:bg-red-700 flex items-center justify-end pr-5 rounded-xl text-white font-medium cursor-pointer select-none transition-colors"
       >
-        <motion.div 
+        <motion.div
           style={{ opacity: deleteOpacity, scale: deleteScale }}
           className="flex items-center gap-1.5 text-xs font-bold"
         >
@@ -106,7 +181,7 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
         </motion.div>
       </div>
 
-      {/* ตัวการ์ดสินค้า (Warm Amber Theme) */}
+      {/* ตัวการ์ดสินค้า */}
       <motion.div
         animate={controls}
         style={{ x }}
@@ -115,16 +190,17 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
         dragConstraints={{ left: -100, right: 0 }}
         dragElastic={0.08}
         onDragEnd={handleDragEnd}
-        className={`relative z-10 bg-white p-3 sm:p-3.5 border shadow-2xs rounded-xl transition-colors ${
-          hasError 
-            ? 'border-red-300 bg-red-50/20' 
+        className={`relative z-10 bg-white p-3 sm:p-3.5 border shadow-2xs rounded-xl transition-colors ${hasError
+          ? 'border-red-300 bg-red-50/20'
+          : isPromoActive
+            ? 'border-amber-400 bg-amber-50/15'
             : 'border-gray-200/90 hover:border-amber-300'
-        }`}
+          }`}
       >
-        {/* Header Row: ชื่อสินค้า + หน่วยนับ + ยอดยกมา */}
-        <div className="flex justify-between items-center mb-2.5">
-          {/* ชื่อสินค้า - แตะเพื่อเปิดแผงแก้ไขสินค้า */}
-          <div className="flex-1 mr-2 flex items-center gap-1.5 min-w-0">
+        {/* Header Row: ชื่อสินค้า + ปุ่ม 1 แถม 1 + ยอดยกมา + หน่วยนับ */}
+        <div className="flex justify-between items-center mb-2.5 gap-1">
+          {/* ชื่อสินค้า */}
+          <div className="flex-1 mr-1 flex items-center gap-1.5 min-w-0">
             <span
               onClick={() => onEditProduct && onEditProduct(product)}
               className="font-bold text-gray-800 text-xs sm:text-sm cursor-pointer hover:text-amber-700 px-1 py-0.5 rounded transition-colors inline-block truncate"
@@ -142,15 +218,29 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
             </button>
           </div>
 
-          {/* ด้านขวา: ยอดยกมาจากวันก่อน + หน่วยนับ + ปุ่มลบสำหรับ PC */}
+          {/* ด้านขวา: ปุ่ม 1 แถม 1 + ยอดยกมา + หน่วยนับ */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* 🎁 ปุ่ม Toggle 1 แถม 1 */}
+            <button
+              type="button"
+              onClick={togglePromo}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold border transition-all cursor-pointer ${isPromoActive
+                ? 'bg-amber-500 text-white border-amber-600 shadow-xs scale-102'
+                : 'bg-gray-50 hover:bg-amber-50 text-gray-500 hover:text-amber-700 border-gray-200 hover:border-amber-300'
+                }`}
+              title={isPromoActive ? 'แตะเพื่อยกเลิก 1 แถม 1' : 'จัดโปร 1 แถม 1 จากยอดที่เหลือ'}
+            >
+              <Gift size={11} className={isPromoActive ? 'text-white' : 'text-amber-600'} />
+              <span>{isPromoActive ? `1 แถม 1 (แถม ${freeQty})` : '1 แถม 1'}</span>
+            </button>
+
             {prevRemain !== null && (
               <span className="text-[10px] sm:text-[11px] bg-amber-50 text-amber-800 border border-amber-200/80 px-2 py-0.5 rounded-full font-medium select-none pointer-events-none">
                 เหลือวันก่อน: <strong className="font-bold">{prevRemain}</strong>
               </span>
             )}
 
-            {/* แตะที่ Badge หน่วยนับเพื่อเปิดแผงแก้ไข */}
+            {/* แตะที่ Badge หน่วยนับ */}
             <button
               type="button"
               onClick={() => onEditProduct && onEditProduct(product)}
@@ -171,8 +261,8 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
           </div>
         </div>
 
-        {/* Input Grid 7-Columns (Warm Golden Input Border) */}
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 items-center text-center">
+        {/* Input Grid 7-Columns (จัดแนว items-start เพื่อล็อกแนวระนาบด้านบนให้เท่ากันทุกช่อง) */}
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 items-start text-center">
           {/* ส่ง */}
           <div className="col-span-2">
             <label className="block text-[10px] sm:text-[11px] font-bold text-gray-400 mb-1">ส่ง</label>
@@ -185,6 +275,11 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
               className="w-full text-center py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-gray-900 focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 focus:outline-none transition-all shadow-2xs"
               placeholder="0"
             />
+            {isPromoActive && (
+              <span className="block text-[9px] sm:text-[10px] text-amber-600 font-medium mt-0.5 whitespace-nowrap">
+                (เดิม {originalSent} | แถม {freeQty})
+              </span>
+            )}
           </div>
 
           {/* ขาย */}
@@ -199,19 +294,24 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
               onChange={handleSoldChange}
               onFocus={(e) => e.target.select()}
               readOnly={calcMode === 'AUTO_SELL'}
-              className={`w-full text-center py-2 rounded-xl text-sm font-black border focus:outline-none transition-all shadow-2xs ${
-                isSoldExceeded
-                  ? 'bg-red-50 border-red-500 text-red-600'
-                  : calcMode === 'AUTO_SELL'
+              className={`w-full text-center py-2 rounded-xl text-sm font-black border focus:outline-none transition-all shadow-2xs ${isSoldExceeded
+                ? 'bg-red-50 border-red-500 text-red-600'
+                : calcMode === 'AUTO_SELL'
                   ? 'bg-amber-50/70 border-amber-200 text-amber-800 font-black cursor-default'
                   : 'bg-gray-50 border-gray-200 text-emerald-600 focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60'
-              }`}
+                }`}
               placeholder="0"
             />
+            {/* รักษาระนาบความสูงด้านล่างให้ตรงกับช่องส่งและเหลือ */}
+            {isPromoActive && (
+              <span className="block text-[9px] sm:text-[10px] text-transparent select-none pointer-events-none mt-0.5">
+                -
+              </span>
+            )}
           </div>
 
-          {/* ปุ่มสลับโหมด */}
-          <div className="col-span-1 flex justify-center pt-3.5 sm:pt-4">
+          {/* ปุ่มสลับโหมด ⇆ */}
+          <div className="col-span-1 flex justify-center pt-5">
             <button
               type="button"
               onClick={toggleCalcMode}
@@ -234,15 +334,19 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
               onChange={handleRemainChange}
               onFocus={(e) => e.target.select()}
               readOnly={calcMode === 'AUTO_REMAIN'}
-              className={`w-full text-center py-2 rounded-xl text-sm font-black border focus:outline-none transition-all shadow-2xs ${
-                isRemainExceeded
-                  ? 'bg-red-50 border-red-500 text-red-600'
-                  : calcMode === 'AUTO_REMAIN'
+              className={`w-full text-center py-2 rounded-xl text-sm font-black border focus:outline-none transition-all shadow-2xs ${isRemainExceeded
+                ? 'bg-red-50 border-red-500 text-red-600'
+                : calcMode === 'AUTO_REMAIN'
                   ? 'bg-amber-50/70 border-amber-200 text-amber-800 font-black cursor-default'
                   : 'bg-gray-50 border-gray-200 text-purple-600 focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60'
-              }`}
+                }`}
               placeholder="0"
             />
+            {isPromoActive && (
+              <span className="block text-[9px] sm:text-[10px] text-amber-600 font-medium mt-0.5 whitespace-nowrap">
+                (เดิม {remainNum + freeQty})
+              </span>
+            )}
           </div>
         </div>
 

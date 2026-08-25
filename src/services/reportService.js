@@ -80,11 +80,12 @@ export const saveDailyReport = async (reportItems, reportDate) => {
       const productId = Number(item.product_id);
       const sellerNameSnapshot = item.seller_name_snapshot ? String(item.seller_name_snapshot).trim() : null;
       const productNameSnapshot = item.product_name_snapshot ? String(item.product_name_snapshot).trim() : null;
-      const unitSnapshot = item.unit_snapshot ? String(item.unit_snapshot).trim() : null;
+      const unitValue = item.unit_snapshot || item.unit;
+      const unitSnapshot = unitValue ? String(unitValue).trim() : null;
       const sent = Number(item.sent) || 0;
       const sold = Number(item.sold) || 0;
-      const remain = item.remain !== undefined && item.remain !== '' 
-        ? Number(item.remain) 
+      const remain = item.remain !== undefined && item.remain !== ''
+        ? Number(item.remain)
         : (sent - sold);
 
       return sql`
@@ -134,7 +135,7 @@ export const deleteDailyReportByDate = async (reportDate) => {
       WHERE report_date = ${cleanDate}::date
       RETURNING *
     `;
-    
+
     return result;
   } catch (error) {
     console.error('Error deleting report by date:', error);

@@ -7,7 +7,7 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
   const [unit, setUnit] = useState('ชิ้น');
   const [isCustomUnit, setIsCustomUnit] = useState(false);
   const [customUnit, setCustomUnit] = useState('');
-  
+
   const [isChecking, setIsChecking] = useState(false);
   const [aiStatus, setAiStatus] = useState(null);
   const [originalName, setOriginalName] = useState('');
@@ -85,8 +85,8 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const finalUnit = isCustomUnit 
-      ? (customUnit.trim() || 'ชิ้น') 
+    const finalUnit = isCustomUnit
+      ? (customUnit.trim() || 'ชิ้น')
       : (unit || 'ชิ้น');
 
     onAdd(sellerId, name.trim(), finalUnit);
@@ -101,7 +101,7 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-        <motion.div 
+        <motion.div
           initial={{ y: '100%', opacity: 0.5 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: '100%', opacity: 0 }}
@@ -122,8 +122,8 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
               </div>
             </div>
 
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={onClose}
               className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
             >
@@ -136,23 +136,22 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="text-xs font-bold text-gray-700">ชื่อสินค้า</label>
-                
+
                 {/* AI Spellcheck Button */}
                 <button
                   type="button"
                   onClick={handleCheckSpell}
                   disabled={isChecking || !name.trim()}
-                  className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                    isChecking
+                  className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${isChecking
                       ? 'bg-amber-50 text-amber-600 border border-amber-300 animate-pulse'
                       : aiStatus === 'corrected'
-                      ? 'bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs font-extrabold'
-                      : aiStatus === 'ok'
-                      ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                      : aiStatus === 'error'
-                      ? 'bg-red-50 text-red-600 border border-red-200'
-                      : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 active:scale-95 disabled:opacity-40'
-                  }`}
+                        ? 'bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs font-extrabold'
+                        : aiStatus === 'ok'
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                          : aiStatus === 'error'
+                            ? 'bg-red-50 text-red-600 border border-red-200'
+                            : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 active:scale-95 disabled:opacity-40'
+                    }`}
                 >
                   {isChecking ? (
                     <>
@@ -227,11 +226,10 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
                       key={u}
                       type="button"
                       onClick={() => handleSelectUnit(u)}
-                      className={`py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                        isSelected
+                      className={`py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${isSelected
                           ? 'bg-amber-50 border-amber-500 text-amber-800 shadow-2xs font-extrabold'
                           : 'border-gray-200 bg-gray-50/60 text-gray-700 hover:bg-amber-50/40'
-                      }`}
+                        }`}
                     >
                       {u}
                     </button>
@@ -242,11 +240,10 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
                 <button
                   type="button"
                   onClick={handleSelectOther}
-                  className={`py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer col-span-2 ${
-                    isCustomUnit
+                  className={`py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer col-span-2 ${isCustomUnit
                       ? 'bg-amber-50 border-amber-500 text-amber-800 shadow-2xs font-extrabold'
                       : 'border-gray-200 bg-gray-50/60 text-gray-700 hover:bg-amber-50/40'
-                  }`}
+                    }`}
                 >
                   อื่นๆ (พิมพ์เอง)
                 </button>
@@ -265,7 +262,7 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
                     value={customUnit}
                     onChange={(e) => setCustomUnit(e.target.value)}
                     placeholder="พิมพ์หน่วยนับ เช่น ห่อ, แพ็ค, จาน, ลูก, แท่ง..."
-                    className="w-full px-3 py-2 border border-amber-400 bg-amber-50/30 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-amber-200 transition-all"
+                    className="w-full px-3 py-2 border border-amber-400 bg-amber-50/30 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-amber-200 transition-all"
                     autoFocus
                   />
                 </motion.div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, ExternalLink } from 'lucide-react';
 import Header from './components/Header';
 import SellerAccordion from './components/SellerAccordion';
 import BottomBar from './components/BottomBar';
@@ -377,8 +377,25 @@ export default function App() {
               </main>
             </div>
 
-            <footer className="text-center text-xs text-gray-400 font-mono select-none">
-              PX Daily Report System {APP_VERSION}
+            <footer className="mt-6 mb-2 text-center text-xs text-gray-400 font-mono select-none space-y-0.5">
+              <p>
+                PX Daily Report System{' '}
+                <span className="text-gray-500">
+                  {APP_VERSION.startsWith('v') ? APP_VERSION : `v${APP_VERSION}`}
+                </span>
+              </p>
+              <p className="text-[11px] text-gray-400">
+                &copy; {new Date().getFullYear()} Developed by{' '}
+                <a
+                  href="https://github.com/DoNuTll40"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-medium text-amber-500 hover:text-amber-400 transition-colors"
+                >
+                  <span>Nuttawoot Chaowna</span>
+                  <ExternalLink className="w-2 h-2 stroke-[2.5]" />
+                </a>
+              </p>
             </footer>
 
             {sellers.length > 0 && (

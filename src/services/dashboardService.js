@@ -239,3 +239,112 @@ export const getSpecificSellerAnalytics = async (sellerName, rangeDays = 7) => {
     return { foundSeller: false, sellerName: sellerName, stats: [] };
   }
 };
+
+/**
+ * 🟢 ดึงข้อมูลแดชบอร์ดเฉพาะของผู้ฝากขาย 1 คน สำหรับหน้าแชร์เฉพาะบุคคล
+ */
+export const getSingleSellerDashboard = async (sellerId, targetDate = null) => {
+  const queryDate = targetDate || getTodayThaiDate();
+  const sId = Number(sellerId);
+
+  try {
+    // 1. ตรวจสอบข้อมูลผู้ฝากขาย
+    const sellerRes = await sql`
+      SELECT id, name FROM sellers WHERE id = ${sId} LIMIT 1
+    `;
+
+    if (!sellerRes || sellerRes.length === 0) {
+      return { found: false, seller: null };
+    }
+
+    const seller = sellerRes[0];
+
+    // 2. ดึงรายการสินค้าและยอดขายของวันที่เลือก
+    const productRows = await sql`
+      SELECT 
+        p.id AS product_id,
+        COALESCE(r.product_name_snapshot, p.name) AS product_name,
+        p.unit,
+        COALESCE(r.sent, 0) AS sent,
+        COALESCE(r.sold, 0) AS sold,
+        COALESCE(r.remain, 0) AS remain,
+        ROUND((COALESCE(r.sold, 0)::numeric / NULLIF(COALESCE(r.sent, 0), 0)::numeric) * 100) AS sell_rate
+      FROM products p
+      LEFT JOIN reports r ON p.id = r.product_id AND r.report_date = ${queryDate}::date AND r.seller_id = ${sId}
+      WHERE p.seller_id = ${sId}
+      ORDER BY p.sort_order ASC, p.id ASC
+    `;
+
+    let totalSent = 0;
+    let totalSold = 0;
+    let totalRemain = 0;
+
+    const products = (productRows || []).map((row) => {
+      const sent = Number(row.sent) || 0;
+      const sold = Number(row.sold) || 0;
+      const remain = Number(row.remain) || 0;
+
+      totalSent += sent;
+      totalSold += sold;
+      totalRemain += remain;
+
+      return {
+        product_id: row.product_id,
+        product_name: row.product_name,
+        unit: row.unit || 'ชิ้น',
+        sent,
+        sold,
+        remain,
+        sell_rate: sent > 0 ? Math.round((sold / sent) * 100) : 0
+      };
+    });
+
+    const sellThroughRate = totalSent > 0 ? Math.round((totalSold / totalSent) * 100) : 0;
+
+    // 3. ยอดขายย้อนหลัง 7 วันล่าสุดของผู้ฝากคนนี้
+    const weeklyTrend = await sql`
+      SELECT 
+        TO_CHAR(report_date, 'YYYY-MM-DD') AS date,
+        SUM(sent) AS total_sent,
+        SUM(sold) AS total_sold,
+        SUM(remain) AS total_remain
+      FROM reports
+      WHERE seller_id = ${sId}
+        AND report_date IN (
+          SELECT DISTINCT report_date FROM reports WHERE seller_id = ${sId} ORDER BY report_date DESC LIMIT 7
+        )
+      GROUP BY report_date
+      ORDER BY report_date ASC
+    `;
+
+    // 4. วันที่ทั้งหมดที่ผู้ฝากคนนี้มีบันทึกรายงาน
+    const availableDatesRes = await sql`
+      SELECT DISTINCT TO_CHAR(report_date, 'YYYY-MM-DD') AS date
+      FROM reports
+      WHERE seller_id = ${sId}
+      ORDER BY date DESC
+    `;
+
+    const availableDates = (availableDatesRes || []).map((r) => r.date);
+
+    return {
+      found: true,
+      queryDate,
+      seller,
+      summary: {
+        totalSent,
+        totalSold,
+        totalRemain,
+        sellThroughRate,
+        productCount: products.length
+      },
+      products,
+      weeklyTrend: weeklyTrend || [],
+      availableDates: availableDates.length > 0 ? availableDates : [queryDate]
+    };
+  } catch (error) {
+    console.error(`Error fetching single seller dashboard for sellerId=${sellerId}:`, error);
+    throw error;
+  }
+};
+

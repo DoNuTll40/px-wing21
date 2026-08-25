@@ -81,7 +81,7 @@ export default function DbHealthCheck() {
   }, [runCheck]);
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-xs border border-amber-200/90 space-y-3">
+    <div className="bg-white rounded-2xl p-4 shadow-xs border border-amber-200/90 space-y-3 mb-4">
       {/* Header */}
       <div className="flex justify-between items-center pb-2.5 border-b border-amber-100">
         <div className="flex items-center gap-2">
@@ -117,11 +117,10 @@ export default function DbHealthCheck() {
           <span>กำลังทดสอบความพร้อมของฐานข้อมูล Neon PostgreSQL...</span>
         </div>
       ) : (
-        <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs font-bold ${
-          status.ok 
-            ? 'bg-emerald-50 text-emerald-800 border-emerald-200/80' 
-            : 'bg-red-50 text-red-800 border-red-200/80'
-        }`}>
+        <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs font-bold ${status.ok
+          ? 'bg-emerald-50 text-emerald-800 border-emerald-200/80'
+          : 'bg-red-50 text-red-800 border-red-200/80'
+          }`}>
           {status.ok ? <CheckCircle2 size={16} className="text-emerald-600 shrink-0" /> : <XCircle size={16} className="text-red-600 shrink-0" />}
           <span className="truncate">{status.message}</span>
         </div>

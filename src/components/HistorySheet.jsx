@@ -82,6 +82,16 @@ export default function HistorySheet({ isOpen, onClose }) {
     }
   }, [isOpen]);
 
+  const toggleSeller = (sellerName) => {
+    setOpenSellers((prev) => {
+      const currentlyOpen = prev[sellerName] !== false; // default is open (true)
+      return {
+        ...prev,
+        [sellerName]: !currentlyOpen
+      };
+    });
+  };
+
   // วันที่สำหรับแสดงบนแถบเลื่อนด่วน (5-7 วันล่าสุด)
   const recentPills = useMemo(() => {
     return Object.keys(historyData).slice(0, 7);
@@ -163,13 +173,6 @@ export default function HistorySheet({ isOpen, onClose }) {
         setLoadingSpecificDate(false);
       }
     }
-  };
-
-  const toggleSeller = (sellerName) => {
-    setOpenSellers((prev) => ({
-      ...prev,
-      [sellerName]: !prev[sellerName]
-    }));
   };
 
   const handleCopySelectedDateReport = async () => {
@@ -413,7 +416,7 @@ export default function HistorySheet({ isOpen, onClose }) {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[11px] font-mono text-gray-500">
+                        <span className="text-[11px] font-medium text-gray-500">
                           ส่ง <b>{sellerSent}</b> | <b className="text-emerald-600">ขาย {sellerSold}</b>
                         </span>
                         <span className="text-gray-400 p-0.5">
@@ -434,11 +437,11 @@ export default function HistorySheet({ isOpen, onClose }) {
                               {p.product_name}
                             </span>
 
-                            <div className="flex items-center gap-2 font-mono text-[11px] text-gray-600 shrink-0">
-                              <span>ส่ง <strong className="text-gray-900">{p.sent}</strong></span>
+                            <div className="flex items-center gap-2 text-[11px] text-gray-600 shrink-0 font-medium">
+                              <span>ส่ง <strong className="text-gray-900 font-bold">{p.sent}</strong></span>
                               <span>ขาย <strong className="text-emerald-600 font-bold">{p.sold}</strong></span>
-                              <span>เหลือ <strong className="text-purple-600">{p.remain}</strong></span>
-                              <span className="text-[10px] text-gray-400 min-w-5 text-right font-sans">{p.unit || 'ชิ้น'}</span>
+                              <span>เหลือ <strong className="text-purple-600 font-bold">{p.remain}</strong></span>
+                              <span className="text-[10px] text-gray-400 min-w-5 text-right font-medium">{p.unit || 'ชิ้น'}</span>
                             </div>
                           </div>
                         ))}

@@ -4,7 +4,7 @@ import { Save, Copy, Check, Loader2 } from 'lucide-react';
 export default function BottomBar({ onSave, onGenerate, isSaved, isCopied, isSubmitting }) {
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 px-0 sm:px-4 md:bottom-4 pointer-events-none">
-      <div className="max-w-md md:max-w-lg mx-auto pointer-events-auto">
+      <div className="max-w-2xl mx-auto pointer-events-auto">
         <div className="bg-white border-t sm:border border-amber-200/80 sm:rounded-2xl p-2.5 sm:p-3 shadow-xl shadow-amber-900/5 flex gap-2.5">
           
           {/* 1. ปุ่มบันทึกข้อมูล */}

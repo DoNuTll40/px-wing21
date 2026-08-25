@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, useMotionValue, useTransform, useAnimation } from 'framer-motion';
 import { ArrowLeftRight, AlertCircle, Trash2, Edit2 } from 'lucide-react';
+import { vibrateWarning } from '../utils/haptics';
 
 export default function ProductCard({ product, onChange, onDelete, onEditProduct }) {
   const [calcMode, setCalcMode] = useState('AUTO_REMAIN');
@@ -24,24 +25,29 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
   const isRemainExceeded = product.sent !== '' && product.remain !== '' && remainNum > sentNum;
   const hasError = isSoldExceeded || isRemainExceeded;
 
-  const handleDeleteWithAnimation = async () => {
+  // ทำการลบสินค้าทันทีพร้อม animation
+  const handleDelete = async () => {
     if (isDeleting) return;
     setIsDeleting(true);
+    vibrateWarning();
     await controls.start({
       x: -300,
       opacity: 0,
       transition: { duration: 0.22, ease: 'easeOut' }
     });
     if (onDelete) {
-      await onDelete(product.id);
+      const success = await onDelete(product.id);
+      // หากลบไม่สำเร็จ (เช่น ติดประวัติรายงานย้อนหลัง) ให้เด้งกลับมาแสดงตามเดิม
+      if (!success) {
+        controls.start({ x: 0, opacity: 1, transition: { duration: 0.25, ease: 'easeOut' } });
+      }
     }
-    controls.start({ x: 0, opacity: 1, transition: { duration: 0.2 } });
     setIsDeleting(false);
   };
 
   const handleDragEnd = async (_, info) => {
     if (info.offset.x < -70 || info.velocity.x < -400) {
-      handleDeleteWithAnimation();
+      handleDelete();
     } else {
       controls.start({ x: 0, transition: { type: 'spring', stiffness: 500, damping: 35 } });
     }
@@ -88,7 +94,7 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
     >
       {/* พื้นหลังสีแดงฝั่งขวา (ปุ่มลบเมื่อรูดบนมือถือ) */}
       <div 
-        onClick={handleDeleteWithAnimation}
+        onClick={handleDelete}
         className="absolute inset-y-0 right-0 w-full bg-red-500 hover:bg-red-600 active:bg-red-700 flex items-center justify-end pr-5 rounded-xl text-white font-medium cursor-pointer select-none transition-colors"
       >
         <motion.div 
@@ -156,7 +162,7 @@ export default function ProductCard({ product, onChange, onDelete, onEditProduct
 
             <button
               type="button"
-              onClick={handleDeleteWithAnimation}
+              onClick={handleDelete}
               className="hidden sm:flex items-center justify-center p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
               title="ลบสินค้ารายการนี้"
             >

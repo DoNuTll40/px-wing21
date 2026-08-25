@@ -1,24 +1,32 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
+import { vibrateWarning } from '../utils/haptics';
 
 export default function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }) {
+  useEffect(() => {
+    if (isOpen) vibrateWarning();
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <motion.div 
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-gray-100 text-center"
+        <motion.div
+          initial={{ scale: 0.92, opacity: 0, y: 10 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 10 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+          className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl border border-amber-200/80 text-center"
         >
-          <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle size={24} />
+          <div className="flex justify-center mb-3">
+            <div className="p-3 rounded-2xl bg-red-50 text-red-500 border border-red-200">
+              <AlertTriangle size={28} />
+            </div>
           </div>
-          <h3 className="text-base font-bold text-gray-900 mb-2">{title}</h3>
-          <p className="text-xs text-gray-500 mb-6 leading-relaxed">{message}</p>
+          <h3 className="text-base font-black text-gray-900 mb-1.5">{title}</h3>
+          <p className="text-xs text-gray-600 leading-relaxed mb-5 whitespace-pre-line px-2 font-medium">{message}</p>
           <div className="flex gap-2">
             <button
               type="button"

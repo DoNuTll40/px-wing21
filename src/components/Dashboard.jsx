@@ -17,12 +17,12 @@ import {
   Check,
   BarChart2,
   List,
-  Camera
+  Share2
 } from 'lucide-react';
-import { toPng } from 'html-to-image';
 import { getDashboardAnalytics } from '../services/dashboardService';
 import { formatDateThai } from '../utils/formatDate';
 import AIInsightCard from './AIInsightCard';
+import ShareSellerModal from './ShareSellerModal';
 
 export default function Dashboard({ onBack }) {
   const [data, setData] = useState(null);
@@ -30,8 +30,9 @@ export default function Dashboard({ onBack }) {
   const [lastUpdated, setLastUpdated] = useState('');
   const [openSellers, setOpenSellers] = useState({ default_first: true });
   const [trendViewMode, setTrendViewMode] = useState('chart'); // 'chart' | 'list'
-  const [isExporting, setIsExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [activeTooltipDate, setActiveTooltipDate] = useState(null);
+  const [sharingSeller, setSharingSeller] = useState(null);
 
   const dashboardCaptureRef = useRef(null);
 
@@ -56,51 +57,16 @@ export default function Dashboard({ onBack }) {
   }, []);
 
   const toggleSeller = (sellerId) => {
-    setOpenSellers((prev) => ({
-      ...prev,
-      [sellerId]: !prev[sellerId]
-    }));
-  };
-
-  // 📸 บันทึกภาพ Dashboard คมชัด 2x สำหรับส่ง LINE
-  const handleExportImage = async () => {
-    if (!dashboardCaptureRef.current || isExporting) return;
-    try {
-      setIsExporting(true);
-      await new Promise(r => setTimeout(r, 150));
-
-      const node = dashboardCaptureRef.current;
-      const targetWidth = Math.max(node.scrollWidth, node.offsetWidth, 1000);
-      const targetHeight = Math.max(node.scrollHeight, node.offsetHeight);
-
-      const dataUrl = await toPng(node, {
-        cacheBust: true,
-        pixelRatio: 2,
-        backgroundColor: '#fffdf7',
-        width: targetWidth + 30,
-        height: targetHeight + 30,
-        style: {
-          width: `${targetWidth}px`,
-          maxWidth: 'none',
-          padding: '16px',
-          margin: '0 auto'
-        }
-      });
-
-      const dateStr = data?.todayDate || 'today';
-      const link = document.createElement('a');
-      link.download = `PX-สรุปยอดขาย-${dateStr}.png`;
-      link.href = dataUrl;
-      link.click();
-
-      setToastMessage('บันทึกรูปภาพเรียบร้อย คมชัด 2x พร้อมส่งเข้า LINE! 📸');
-      setTimeout(() => setToastMessage(''), 3500);
-    } catch (err) {
-      console.error('Export image error:', err);
-      alert('เกิดข้อผิดพลาดในการบันทึกรูปภาพ กรุณาลองใหม่อีกครั้ง');
-    } finally {
-      setIsExporting(false);
-    }
+    setOpenSellers((prev) => {
+      const isCurrentlyOpen = prev[sellerId] !== undefined 
+        ? prev[sellerId] 
+        : (prev.default_first && sellerStats[0]?.seller_id === sellerId);
+      return {
+        ...prev,
+        default_first: false,
+        [sellerId]: !isCurrentlyOpen
+      };
+    });
   };
 
   if (loading) {
@@ -135,7 +101,7 @@ export default function Dashboard({ onBack }) {
   const maxTrendSent = Math.max(...weeklyTrend.map(t => Number(t.total_sent) || 0), 10);
 
   return (
-    <div className="min-h-screen bg-[#fffdf7] pb-12 font-sans text-gray-900 select-text">
+    <div className="min-h-screen bg-[#fffdf7] pb-12 font-sans text-gray-900 select-text overflow-x-hidden">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-50 bg-gray-900 text-white px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-bottom-3 duration-300">
@@ -156,18 +122,7 @@ export default function Dashboard({ onBack }) {
           </button>
 
           <div className="flex items-center gap-2">
-            {/* 📸 ปุ่มบันทึกภาพ LINE */}
-            <button
-              onClick={handleExportImage}
-              disabled={isExporting}
-              className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-full active:scale-95 transition-all cursor-pointer shadow-2xs"
-              title="บันทึกภาพหน้าจอ Dashboard คมชัด 2x สำหรับส่ง LINE"
-            >
-              {isExporting ? <Loader2 size={13} className="animate-spin text-emerald-700" /> : <Camera size={13} className="text-emerald-700" />}
-              <span>บันทึกภาพ LINE</span>
-            </button>
-
-            <span className="text-xs text-gray-500 font-mono hidden sm:inline">อัปเดต {lastUpdated} น.</span>
+            <span className="text-xs text-gray-500 font-medium hidden sm:inline">อัปเดต {lastUpdated} น.</span>
 
             <button
               onClick={loadData}
@@ -326,10 +281,23 @@ export default function Dashboard({ onBack }) {
                                 {products.length} รายการ
                               </span>
                             </div>
-                            <span className="font-mono text-xs">
-                              <strong className={s.total_sold > 0 ? 'text-emerald-600' : 'text-gray-700'}>{s.total_sold}</strong>
-                              <span className="text-gray-400"> / {s.total_sent} ({rate}%)</span>
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold">
+                                <strong className={s.total_sold > 0 ? 'text-emerald-600' : 'text-gray-700'}>{s.total_sold}</strong>
+                                <span className="text-gray-400"> / {s.total_sent} ({rate}%)</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSharingSeller({ id: s.seller_id, name: s.seller_name });
+                                }}
+                                className="p-1.5 text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 rounded-xl transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                title={`แชร์รายงานส่วนบุคคลให้ ${s.seller_name}`}
+                              >
+                                <Share2 size={13} />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Horizontal Progress Bar */}
@@ -350,7 +318,7 @@ export default function Dashboard({ onBack }) {
                               products.map((p) => (
                                 <div key={p.product_id} className="flex justify-between items-center py-1.5 border-b border-amber-100/60 last:border-0">
                                   <span className="font-bold text-gray-800 text-xs">{p.product_name}</span>
-                                  <div className="flex items-center gap-2 text-xs font-mono">
+                                  <div className="flex items-center gap-2 text-xs font-semibold">
                                     <span className="text-gray-500">ส่ง <strong>{p.sent}</strong></span>
                                     <span className="text-emerald-600 font-bold">ขาย {p.sold}</span>
                                     <span className="text-purple-600 font-bold">เหลือ {p.remain} {p.unit}</span>
@@ -373,7 +341,9 @@ export default function Dashboard({ onBack }) {
               <div className="bg-white rounded-3xl p-4 border border-amber-200/90 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between border-b border-amber-100 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <Trophy size={16} className="text-gray-800" />
+                    <div className="w-7 h-7 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
+                      <Trophy size={15} className="text-amber-600" />
+                    </div>
                     <h2 className="text-sm font-bold text-gray-900">5 สินค้าขายดีวันนี้</h2>
                   </div>
                   <span className="text-[10px] text-amber-900 font-bold bg-amber-50 border border-amber-200/90 px-2.5 py-0.5 rounded-full">
@@ -391,7 +361,15 @@ export default function Dashboard({ onBack }) {
                         className="flex items-center justify-between gap-2 p-3 rounded-2xl border border-amber-100/80 bg-white shadow-2xs text-xs"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 shadow-2xs ${
+                            index === 0
+                              ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-white font-black shadow-amber-500/20'
+                              : index === 1
+                              ? 'bg-amber-100/90 text-amber-900 border border-amber-200 font-black'
+                              : index === 2
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200/80 font-black'
+                              : 'bg-gray-100/90 text-gray-600 border border-gray-200 font-bold'
+                          }`}>
                             {index + 1}
                           </div>
                           <div className="min-w-0">
@@ -409,7 +387,7 @@ export default function Dashboard({ onBack }) {
                               {item.sell_rate}%
                             </span>
                           </div>
-                          <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                          <div className="text-[10px] text-gray-400 font-medium mt-0.5">
                             ส่ง {item.sent} | เหลือ {item.remain}
                           </div>
                         </div>
@@ -423,7 +401,9 @@ export default function Dashboard({ onBack }) {
               <div className="bg-white rounded-3xl p-4 border border-amber-200/90 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between border-b border-amber-100 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <Calendar size={16} className="text-amber-600" />
+                    <div className="w-7 h-7 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
+                      <Calendar size={15} className="text-amber-600" />
+                    </div>
                     <h2 className="text-sm font-bold text-gray-900">ยอดขาย 7 วันย้อนหลัง</h2>
                   </div>
 
@@ -459,24 +439,75 @@ export default function Dashboard({ onBack }) {
                 ) : trendViewMode === 'chart' ? (
                   /* 📊 7 Capsule Bars View */
                   <div className="space-y-3 pt-2">
-                    <div className="flex items-end justify-between gap-2 h-36 px-1">
-                      {weeklyTrend.map((t) => {
+                    <div className="flex items-end justify-between gap-1 sm:gap-2 h-36 px-1 relative">
+                      {weeklyTrend.map((t, index) => {
                         const sent = Number(t.total_sent) || 0;
                         const sold = Number(t.total_sold) || 0;
                         const remain = Number(t.total_remain) || 0;
                         const rate = sent > 0 ? Math.round((sold / sent) * 100) : 0;
                         const soldRatio = sent > 0 ? (sold / sent) : 0;
                         const barFillPercent = Math.max(Math.round((sent / maxTrendSent) * 100), 15);
+                        const isSelected = activeTooltipDate === t.date;
+
+                        const isFirst = index === 0;
+                        const isLast = index === weeklyTrend.length - 1;
+                        const isNearLast = index === weeklyTrend.length - 2;
 
                         return (
-                          <div key={t.date} className="flex-1 flex flex-col items-center justify-end h-full">
+                          <div 
+                            key={t.date} 
+                            className="flex-1 flex flex-col items-center justify-end h-full relative group cursor-pointer"
+                            onMouseEnter={() => setActiveTooltipDate(t.date)}
+                            onMouseLeave={() => setActiveTooltipDate(null)}
+                            onClick={() => setActiveTooltipDate(activeTooltipDate === t.date ? null : t.date)}
+                          >
+                            {/* Floating Tooltip Box (Smart Responsive Alignment) */}
+                            <div 
+                              className={`absolute -top-16 bg-gray-900/95 text-white text-[10px] py-1.5 px-2.5 rounded-xl shadow-xl z-30 pointer-events-none transition-all duration-200 whitespace-nowrap border border-gray-700 ${
+                                isLast
+                                  ? 'right-0 left-auto translate-x-0'
+                                  : isFirst
+                                  ? 'left-0 translate-x-0'
+                                  : isNearLast
+                                  ? 'right-[-16px] sm:left-1/2 sm:-translate-x-1/2 sm:right-auto'
+                                  : 'left-1/2 -translate-x-1/2'
+                              } ${
+                                isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
+                              }`}
+                            >
+                              <div className="font-bold text-amber-300 pb-0.5 border-b border-gray-700 text-center text-[11px]">
+                                {formatDateThai(t.date)}
+                              </div>
+                              <div className="flex items-center gap-2 pt-1 font-bold text-[10px]">
+                                <span className="text-emerald-400">ขาย {sold} ({rate}%)</span>
+                                <span className="text-gray-400">|</span>
+                                <span className="text-amber-300">ส่ง {sent}</span>
+                                <span className="text-gray-400">|</span>
+                                <span className="text-purple-300">เหลือ {remain}</span>
+                              </div>
+                              {/* Tooltip Arrow */}
+                              <div className={`absolute top-full border-4 border-transparent border-t-gray-900/95 ${
+                                isLast
+                                  ? 'right-4 left-auto'
+                                  : isFirst
+                                  ? 'left-4'
+                                  : isNearLast
+                                  ? 'right-6 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto'
+                                  : 'left-1/2 -translate-x-1/2'
+                              }`} />
+                            </div>
+
                             {/* Top Percentage Label */}
-                            <span className="text-[10px] font-bold text-gray-600 mb-1 font-mono">
+                            <span className={`text-[10px] font-bold mb-1 transition-colors ${
+                              isSelected ? 'text-amber-700 scale-110' : 'text-gray-600'
+                            }`}>
                               {rate}%
                             </span>
 
                             {/* Capsule Column Track (Rounded-2xl Cream Track) */}
-                            <div className="w-full max-w-[28px] h-24 bg-amber-100/60 rounded-xl overflow-hidden flex flex-col justify-end relative">
+                            <div className={`w-full max-w-[28px] h-24 bg-amber-100/60 rounded-xl overflow-hidden flex flex-col justify-end relative transition-all ${
+                              isSelected ? 'ring-2 ring-amber-500 scale-105 shadow-md' : 'group-hover:ring-1 group-hover:ring-amber-400'
+                            }`}>
                               {/* Sent Height Yellow Fill */}
                               <div 
                                 className="w-full bg-amber-400 rounded-xl overflow-hidden flex flex-col justify-end transition-all duration-300"
@@ -491,7 +522,9 @@ export default function Dashboard({ onBack }) {
                             </div>
 
                             {/* Bottom Date Label */}
-                            <span className="text-[10px] text-gray-500 font-mono mt-1.5 font-bold">
+                            <span className={`text-[10px] mt-1.5 font-bold transition-colors ${
+                              isSelected ? 'text-amber-900 font-black' : 'text-gray-500'
+                            }`}>
                               {t.date ? t.date.split('-').slice(1).reverse().join('/') : ''}
                             </span>
                           </div>
@@ -521,8 +554,8 @@ export default function Dashboard({ onBack }) {
                   <div className="space-y-1.5">
                     {weeklyTrend.map((t) => (
                       <div key={t.date} className="flex justify-between items-center py-2 border-b border-amber-100/60 last:border-0 text-xs">
-                        <span className="font-mono text-xs font-bold text-gray-800">{formatDateThai(t.date)}</span>
-                        <div className="flex gap-2.5 font-mono text-[11px]">
+                        <span className="text-xs font-bold text-gray-800">{formatDateThai(t.date)}</span>
+                        <div className="flex gap-2.5 text-[11px] font-semibold">
                           <span className="text-gray-500">ส่ง {t.total_sent}</span>
                           <span className="font-bold text-emerald-600">ขาย {t.total_sold}</span>
                           <span className="text-purple-600 font-bold">เหลือ {t.total_remain}</span>

@@ -36,11 +36,11 @@ export default function EditProductSheet({ isOpen, onClose, onSave, product }) {
   const handleCheckSpell = async () => {
     if (!name.trim() || isChecking) return;
 
-    const apiUrl = import.meta.env.VITE_GEMINI_URL;
+    const apiUrl = import.meta.env.VITE_GEMINI_URL || import.meta.env.VITE_GEMINI_API_URL;
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
     if (!apiUrl || !apiKey) {
-      alert('กรุณาตั้งค่า VITE_GEMINI_API_URL และ VITE_GEMINI_API_KEY ในไฟล์ .env ให้ครบถ้วน');
+      alert('กรุณาตั้งค่า VITE_GEMINI_URL และ VITE_GEMINI_API_KEY ในไฟล์ .env ให้ครบถ้วน');
       return;
     }
 

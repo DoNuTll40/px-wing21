@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GripVertical, ChevronDown, Plus, Trash2, Edit2 } from 'lucide-react';
+import { GripVertical, ChevronDown, Plus, Trash2, Edit2, Share2 } from 'lucide-react';
 import ProductCard from './ProductCard';
 
 export default function SellerAccordion({ 
@@ -12,6 +12,7 @@ export default function SellerAccordion({
   onOpenAddProduct, 
   onUpdateSeller, 
   onEditProduct,
+  onShareSeller,
   dragHandleProps 
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -36,7 +37,7 @@ export default function SellerAccordion({
       await onUpdateSeller(seller.id, trimmed);
       setIsEditingName(false);
     } catch (err) {
-      alert(`แก้ไขชื่อไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ'}`);
+      throw err;
     } finally {
       setIsSaving(false);
     }
@@ -144,9 +145,17 @@ export default function SellerAccordion({
           )}
         </div>
 
-        {/* ฝั่งขวา: ปุ่มเพิ่มสินค้า และ ลบร้านค้า */}
+        {/* ฝั่งขวา: ปุ่มแชร์, เพิ่มสินค้า และ ลบร้านค้า */}
         {!isEditingName && (
           <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => onShareSeller && onShareSeller(seller)}
+              className="text-amber-800 hover:text-amber-900 bg-amber-50/80 hover:bg-amber-100 border border-amber-200/70 p-1.5 rounded-xl active:scale-95 transition-all cursor-pointer"
+              title="แชร์รายงานยอดขายให้ผู้ฝาก"
+            >
+              <Share2 size={15} />
+            </button>
             <button
               type="button"
               onClick={() => onOpenAddProduct(seller.id)}

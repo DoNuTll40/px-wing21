@@ -7,26 +7,30 @@ import SellerAccordion from './components/SellerAccordion';
 import BottomBar from './components/BottomBar';
 import AddSellerSheet from './components/AddSellerSheet';
 import AddProductSheet from './components/AddProductSheet';
+import EditProductSheet from './components/EditProductSheet';
+import ShareSellerModal from './components/ShareSellerModal';
 import ConfirmDialog from './components/ConfirmDialog';
+import AlertModal from './components/AlertModal';
 import EmptyState from './components/EmptyState';
 import Loading from './components/Loading';
 import DbHealthCheck from './components/DbHealthCheck';
 import HistorySheet from './components/HistorySheet';
 import InstallPWA from './components/InstallPWA';
 import Dashboard from './components/Dashboard';
+import SellerShareView from './components/SellerShareView';
 
-import { 
-  getSellers, 
-  createSeller, 
+import {
+  getSellers,
+  createSeller,
   updateSeller,
-  deleteSeller, 
-  updateSellersSortOrder 
+  deleteSeller,
+  updateSellersSortOrder
 } from './services/sellerService';
-import { 
-  getProducts, 
-  createProduct, 
+import {
+  getProducts,
+  createProduct,
   updateProduct,
-  deleteProduct 
+  deleteProduct
 } from './services/productService';
 import { saveDailyReport, getTodayReport, getLatestPreviousReports } from './services/reportService';
 import { generateReportText } from './utils/generateReport';
@@ -46,8 +50,17 @@ export default function App() {
   const [isAddSellerOpen, setIsAddSellerOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [selectedSellerId, setSelectedSellerId] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [sharingSeller, setSharingSeller] = useState(null);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [alertInfo, setAlertInfo] = useState({
+    isOpen: false,
+    type: 'error',
+    title: '',
+    message: ''
+  });
+
 
   const [isSaved, setIsSaved] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -68,7 +81,7 @@ export default function App() {
         (a, b) => (a.sort_order || a.id) - (b.sort_order || b.id)
       );
       setSellers(sortedSellers);
-      
+
       const todayReportMap = {};
       (todayReportData || []).forEach((item) => {
         todayReportMap[String(item.product_id)] = item;
@@ -191,10 +204,17 @@ export default function App() {
 
     try {
       await deleteProduct(productId);
+      return true;
     } catch (err) {
       console.error('Delete product error:', err);
-      alert(err.message || 'เกิดข้อผิดพลาดในการลบสินค้า');
       setProducts(previousProducts);
+      setAlertInfo({
+        isOpen: true,
+        type: 'error',
+        title: 'ไม่สามารถลบสินค้าได้',
+        message: err.message || 'เกิดข้อผิดพลาดในการลบสินค้า'
+      });
+      return false;
     }
   };
 
@@ -209,7 +229,12 @@ export default function App() {
       }
     } catch (err) {
       console.error('Delete seller error:', err);
-      alert(err.message || 'เกิดข้อผิดพลาดในการลบข้อมูลผู้ฝากขาย');
+      setAlertInfo({
+        isOpen: true,
+        type: 'error',
+        title: 'ไม่สามารถลบผู้ฝากขายได้',
+        message: err.message || 'เกิดข้อผิดพลาดในการลบข้อมูลผู้ฝากขาย'
+      });
     } finally {
       setDeleteTarget(null);
     }
@@ -286,24 +311,15 @@ export default function App() {
         element={
           <div className="min-h-screen bg-gray-50 pb-28 font-sans text-gray-900 flex flex-col justify-between">
             <div>
-              <Header 
+              <Header
                 onOpenAddSeller={() => setIsAddSellerOpen(true)}
                 isDebugOpen={isDebugOpen}
                 onToggleDebug={() => setIsDebugOpen(!isDebugOpen)}
                 onOpenHistory={() => setIsHistoryOpen(true)}
+                onOpenDashboard={() => navigate('/dashboard')}
               />
 
-              <div className="max-w-md mx-auto px-4 pt-3 flex justify-end">
-                <button
-                  onClick={() => navigate('/dashboard')}
-                  className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl shadow-2xs active:scale-95 transition-all"
-                >
-                  <BarChart3 size={15} />
-                  <span>ดู Dashboard Real-time</span>
-                </button>
-              </div>
-
-              <main className="max-w-md mx-auto p-4">
+              <main className="max-w-2xl mx-auto p-4 pb-0">
                 {isDebugOpen && <DbHealthCheck />}
 
                 {loading ? (
@@ -314,8 +330,8 @@ export default function App() {
                   <DragDropContext onDragEnd={handleDragEnd}>
                     <Droppable droppableId="sellers-list">
                       {(provided) => (
-                        <div 
-                          {...provided.droppableProps} 
+                        <div
+                          {...provided.droppableProps}
                           ref={provided.innerRef}
                           className="space-y-3"
                         >
@@ -343,7 +359,8 @@ export default function App() {
                                         setIsAddProductOpen(true);
                                       }}
                                       onUpdateSeller={handleUpdateSeller}
-                                      onUpdateProduct={handleUpdateProduct}
+                                      onEditProduct={(prod) => setEditingProduct(prod)}
+                                      onShareSeller={(s) => setSharingSeller(s)}
                                       dragHandleProps={provided.dragHandleProps}
                                     />
                                   </div>
@@ -360,7 +377,7 @@ export default function App() {
               </main>
             </div>
 
-            <footer className="text-center py-4 text-xs text-gray-400 font-mono select-none">
+            <footer className="text-center text-xs text-gray-400 font-mono select-none">
               PX Daily Report System {APP_VERSION}
             </footer>
 
@@ -387,6 +404,19 @@ export default function App() {
               sellerId={selectedSellerId}
             />
 
+            <EditProductSheet
+              isOpen={!!editingProduct}
+              product={editingProduct}
+              onClose={() => setEditingProduct(null)}
+              onSave={handleUpdateProduct}
+            />
+
+            <ShareSellerModal
+              isOpen={!!sharingSeller}
+              seller={sharingSeller}
+              onClose={() => setSharingSeller(null)}
+            />
+
             <HistorySheet
               isOpen={isHistoryOpen}
               onClose={() => setIsHistoryOpen(false)}
@@ -400,6 +430,15 @@ export default function App() {
               onCancel={() => setDeleteTarget(null)}
             />
 
+            <AlertModal
+              isOpen={alertInfo.isOpen}
+              type={alertInfo.type}
+              title={alertInfo.title}
+              message={alertInfo.message}
+              onClose={() => setAlertInfo((prev) => ({ ...prev, isOpen: false }))}
+            />
+
+
             <InstallPWA />
           </div>
         }
@@ -408,6 +447,11 @@ export default function App() {
       <Route
         path="/dashboard"
         element={<Dashboard onBack={() => navigate('/')} />}
+      />
+
+      <Route
+        path="/share/:sellerId"
+        element={<SellerShareView />}
       />
     </Routes>
   );

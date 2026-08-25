@@ -31,7 +31,7 @@ export default function Header({
 
         {/* Actions Right (Warm Amber Harmonized Palette) */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          {/* ปุ่มเปิด Dashboard */}
+          {/* ปุ่มเปิด Dashboard / สรุป */}
           <button
             type="button"
             onClick={onOpenDashboard}
@@ -39,8 +39,7 @@ export default function Header({
             title="ดู Dashboard สรุปภาพรวมและสถิติ"
           >
             <BarChart3 size={14} className="text-amber-700 shrink-0" />
-            <span className="hidden sm:inline">Dashboard</span>
-            <span className="sm:hidden text-[11px]">สรุป</span>
+            <span className="text-[11px] sm:text-xs">สรุป</span>
           </button>
 
           {/* ปุ่มเปิดประวัติ */}

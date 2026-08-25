@@ -101,7 +101,7 @@ export default function Dashboard({ onBack }) {
   const maxTrendSent = Math.max(...weeklyTrend.map(t => Number(t.total_sent) || 0), 10);
 
   return (
-    <div className="min-h-screen bg-[#fffdf7] pb-12 font-sans text-gray-900 select-text overflow-x-hidden">
+    <div className="min-h-screen bg-[#fffdf7] pb-12 font-sans text-gray-900 select-text">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-50 bg-gray-900 text-white px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-bottom-3 duration-300">
@@ -286,7 +286,7 @@ export default function Dashboard({ onBack }) {
                                 <strong className={s.total_sold > 0 ? 'text-emerald-600' : 'text-gray-700'}>{s.total_sold}</strong>
                                 <span className="text-gray-400"> / {s.total_sent} ({rate}%)</span>
                               </span>
-                              <button
+                              {/* <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -296,7 +296,7 @@ export default function Dashboard({ onBack }) {
                                 title={`แชร์รายงานส่วนบุคคลให้ ${s.seller_name}`}
                               >
                                 <Share2 size={13} />
-                              </button>
+                              </button> */}
                             </div>
                           </div>
 

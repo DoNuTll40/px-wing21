@@ -35,8 +35,7 @@ import {
 import { saveDailyReport, getTodayReport, getLatestPreviousReports } from './services/reportService';
 import { generateReportText } from './utils/generateReport';
 import { copyToClipboard } from './utils/clipboard';
-
-const APP_VERSION = 'v1.5.5';
+import Footer from './components/Footer';
 
 export default function App() {
   const navigate = useNavigate();
@@ -377,26 +376,7 @@ export default function App() {
               </main>
             </div>
 
-            <footer className="mt-6 mb-2 text-center text-xs text-gray-400 font-mono select-none space-y-0.5">
-              <p>
-                PX Daily Report System{' '}
-                <span className="text-gray-500">
-                  {APP_VERSION.startsWith('v') ? APP_VERSION : `v${APP_VERSION}`}
-                </span>
-              </p>
-              <p className="text-[11px] text-gray-400">
-                &copy; {new Date().getFullYear()} Developed by{' '}
-                <a
-                  href="https://github.com/DoNuTll40"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-medium text-amber-500 hover:text-amber-400 transition-colors"
-                >
-                  <span>Nuttawoot Chaowna</span>
-                  <ExternalLink className="w-2 h-2 stroke-[2.5]" />
-                </a>
-              </p>
-            </footer>
+            <Footer  />
 
             {sellers.length > 0 && (
               <BottomBar

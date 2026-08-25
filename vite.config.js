@@ -3,9 +3,6 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// SVG Icon (กล่องรายงานสีฟ้า) สำหรับ PWA โดยไม่ต้องมีไฟล์ภาพในเครื่อง
-const pwaIconDataUri = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><rect width="512" height="512" rx="110" fill="%232563eb"/><path d="M160 140h192M160 210h192M160 280h120" stroke="%23ffffff" stroke-width="32" stroke-linecap="round"/><rect x="120" y="80" width="272" height="352" rx="24" fill="none" stroke="%23ffffff" stroke-width="28"/><circle cx="330" cy="350" r="40" fill="%2322c55e"/></svg>`
-
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -13,25 +10,29 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      filename: 'manifest.json', // บังคับให้ตั้งชื่อเป็น manifest.json
+      includeAssets: ['favicon.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'PX Daily Report',
         short_name: 'PX Report',
         description: 'ระบบบันทึกรายงานยอดฝากขายประจำวัน',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        theme_color: '#fffdf7',
+        background_color: '#fffdf7',
         display: 'standalone',
         orientation: 'portrait',
+        start_url: '/',
+        id: '/',
         icons: [
           {
-            src: pwaIconDataUri,
+            src: '/pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any'
           },
           {
-            src: pwaIconDataUri,
+            src: '/pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any maskable'
           }
         ]

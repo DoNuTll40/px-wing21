@@ -1,24 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { 
-  Package, 
-  ShoppingBag, 
-  TrendingUp, 
-  Calendar, 
-  RefreshCw, 
-  Copy, 
-  Check, 
-  Loader2, 
-  Store, 
-  BarChart3, 
-  Sparkles, 
+import {
+  Package,
+  ShoppingBag,
+  TrendingUp,
+  Calendar,
+  RefreshCw,
+  Copy,
+  Check,
+  Loader2,
+  Store,
+  BarChart3,
+  Sparkles,
   AlertCircle,
-  Archive
+  Archive,
+  RotateCcw,
+  SearchX
 } from 'lucide-react';
 import { getSingleSellerDashboard } from '../services/dashboardService';
 import { formatDateThai } from '../utils/formatDate';
 import { copyToClipboard } from '../utils/clipboard';
 import { vibrateSuccess } from '../utils/haptics';
+import Footer from './Footer';
 
 export default function SellerShareView() {
   const { sellerId } = useParams();
@@ -108,14 +111,57 @@ export default function SellerShareView() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-[#fffdf7] flex items-center justify-center p-4">
-        <div className="max-w-sm w-full bg-white rounded-3xl p-6 border border-red-200 text-center shadow-xl space-y-3">
-          <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto">
-            <AlertCircle size={24} />
+      <div className="min-h-screen bg-[#fffdf7] flex flex-col justify-between p-4 sm:p-6 font-sans select-none">
+        {/* Header โครงร่างเบาๆ คุมโทน */}
+        <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shadow-xs shrink-0">
+              <Store size={16} />
+            </div>
+            <div>
+              <h1 className="text-sm font-black text-gray-900 leading-tight">PX Daily Report</h1>
+              <span className="text-[10px] text-amber-800 font-medium block">ระบบรายงานยอดขายส่วนบุคคล</span>
+            </div>
           </div>
-          <h2 className="text-base font-bold text-gray-900">ไม่สามารถแสดงข้อมูลได้</h2>
-          <p className="text-xs text-gray-500 font-medium">{error || 'ลิงก์นี้ไม่ถูกต้องหรือผู้ฝากขายถูกลบออกจากระบบแล้ว'}</p>
         </div>
+
+        {/* 404 / Error Card กลางหน้าจอ */}
+        <div className="max-w-md w-full mx-auto my-auto py-8">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-amber-200/90 text-center shadow-xs space-y-4">
+            {/* Badge Icon */}
+            <div className="relative w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-2xs">
+              <SearchX size={32} className="stroke-[1.75]" />
+              <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-2xs">
+                404
+              </span>
+            </div>
+
+            {/* ข้อความแจ้งเตือน */}
+            <div className="space-y-1.5">
+              <h2 className="text-lg sm:text-xl font-black text-gray-900">
+                ไม่พบข้อมูลผู้ฝากขาย
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-500 leading-relaxed max-w-xs mx-auto">
+                {error || 'ลิงก์นี้ไม่ถูกต้อง มีการเปลี่ยนรหัสผู้ฝากขาย หรือข้อมูลยังไม่ได้ถูกบันทึกเข้าระบบ'}
+              </p>
+            </div>
+
+            {/* ปุ่มกดลองใหม่ */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => loadData()}
+                className="inline-flex items-center gap-2 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 active:scale-95 border border-amber-200/90 px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-2xs"
+              >
+                <RotateCcw size={14} className="text-amber-700" />
+                <span>ลองโหลดข้อมูลใหม่อีกครั้ง</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer ด้านล่าง */}
+        <Footer />
       </div>
     );
   }
@@ -124,9 +170,9 @@ export default function SellerShareView() {
   const maxTrendSent = Math.max(...weeklyTrend.map(t => Number(t.total_sent) || 0), 10);
 
   return (
-    <div className="min-h-screen bg-[#fffdf7] pb-16 font-sans text-gray-900 select-text overflow-x-hidden">
+    <div className="min-h-screen bg-[#fffdf7] pb-0 font-sans text-gray-900 select-text">
       {/* Sticky Header Bar */}
-      <header className="bg-white/90 backdrop-blur-xs border-b border-amber-200/80 sticky top-0 z-30 shadow-2xs">
+      <header className="bg-amber-100/30 backdrop-blur-xl border-b border-amber-200/80 sticky top-0 z-30 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shadow-xs shrink-0">
@@ -147,11 +193,10 @@ export default function SellerShareView() {
             <button
               type="button"
               onClick={handleCopyReport}
-              className={`flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl border transition-all cursor-pointer shadow-2xs ${
-                isCopied 
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
-                  : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200 active:scale-95'
-              }`}
+              className={`flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl border transition-all cursor-pointer shadow-2xs ${isCopied
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200 active:scale-95'
+                }`}
               title="คัดลอกสรุปยอดขายสำหรับส่ง LINE"
             >
               {isCopied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} className="text-amber-700" />}
@@ -173,7 +218,7 @@ export default function SellerShareView() {
 
       {/* Main Container (Responsive Full-Width on Desktop) */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        
+
         {/* Title & Date Selector Banner */}
         <div className="bg-white rounded-3xl p-4 sm:p-6 border border-amber-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -274,7 +319,7 @@ export default function SellerShareView() {
                   {summary.sellThroughRate}%
                 </div>
                 <div className="w-full bg-amber-100 h-2 rounded-full mt-2 overflow-hidden">
-                  <div 
+                  <div
                     className="bg-gradient-to-r from-amber-500 to-emerald-500 h-full rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(summary.sellThroughRate, 100)}%` }}
                   />
@@ -286,7 +331,7 @@ export default function SellerShareView() {
 
         {/* 🌟 2-Column Responsive Layout (Desktop: Products on Left 2-Cols, Trend Chart on Right 1-Col) */}
         <div className={`grid grid-cols-1 ${showTrend && weeklyTrend && weeklyTrend.length > 0 ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-4 sm:gap-6`}>
-          
+
           {/* 📦 Left Column: Product List Details (Span 2 on Desktop) */}
           {showProducts && (
             <div className={`${showTrend && weeklyTrend && weeklyTrend.length > 0 ? 'lg:col-span-2' : 'lg:col-span-1'} bg-white rounded-3xl p-4 sm:p-6 border border-amber-200/90 shadow-2xs space-y-4`}>
@@ -309,7 +354,7 @@ export default function SellerShareView() {
                   <p className="text-xs text-center text-gray-400 py-10 col-span-full">ไม่มีรายการสินค้าในวันที่เลือก</p>
                 ) : (
                   products.map((p) => (
-                    <div 
+                    <div
                       key={p.product_id}
                       className="p-3.5 bg-amber-50/20 border border-amber-100/90 rounded-2xl space-y-2 hover:border-amber-300 transition-all shadow-2xs flex flex-col justify-between"
                     >
@@ -330,7 +375,7 @@ export default function SellerShareView() {
 
                       {/* Progress Bar */}
                       <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden flex mt-1">
-                        <div 
+                        <div
                           className="bg-emerald-500 h-full rounded-full transition-all duration-300"
                           style={{ width: `${Math.min(p.sell_rate, 100)}%` }}
                         />
@@ -376,26 +421,24 @@ export default function SellerShareView() {
                       const isNearLast = index >= weeklyTrend.length - 2;
 
                       return (
-                        <div 
-                          key={t.date} 
+                        <div
+                          key={t.date}
                           className="flex-1 flex flex-col items-center justify-end h-full relative group cursor-pointer"
                           onMouseEnter={() => setActiveTooltipDate(t.date)}
                           onMouseLeave={() => setActiveTooltipDate(null)}
                           onClick={() => setActiveTooltipDate(activeTooltipDate === t.date ? null : t.date)}
                         >
                           {/* Tooltip Box */}
-                          <div 
-                            className={`absolute -top-16 bg-gray-900/95 text-white text-[10px] py-1.5 px-2.5 rounded-xl shadow-xl z-30 pointer-events-none transition-all duration-200 whitespace-nowrap border border-gray-700 ${
-                              isLast
-                                ? 'right-0 left-auto translate-x-0'
-                                : isFirst
+                          <div
+                            className={`absolute -top-16 bg-gray-900/95 text-white text-[10px] py-1.5 px-2.5 rounded-xl shadow-xl z-30 pointer-events-none transition-all duration-200 whitespace-nowrap border border-gray-700 ${isLast
+                              ? 'right-0 left-auto translate-x-0'
+                              : isFirst
                                 ? 'left-0 translate-x-0'
                                 : isNearLast
-                                ? 'right-[-16px] sm:left-1/2 sm:-translate-x-1/2 sm:right-auto'
-                                : 'left-1/2 -translate-x-1/2'
-                            } ${
-                              isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
-                            }`}
+                                  ? 'right-[-16px] sm:left-1/2 sm:-translate-x-1/2 sm:right-auto'
+                                  : 'left-1/2 -translate-x-1/2'
+                              } ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
+                              }`}
                           >
                             <div className="font-bold text-amber-300 pb-0.5 border-b border-gray-700 text-center text-[11px]">
                               {formatDateThai(t.date)}
@@ -407,33 +450,30 @@ export default function SellerShareView() {
                               <span className="text-gray-400">|</span>
                               <span className="text-purple-300">เหลือ {remain}</span>
                             </div>
-                            <div className={`absolute top-full border-4 border-transparent border-t-gray-900/95 ${
-                              isLast
-                                ? 'right-4 left-auto'
-                                : isFirst
+                            <div className={`absolute top-full border-4 border-transparent border-t-gray-900/95 ${isLast
+                              ? 'right-4 left-auto'
+                              : isFirst
                                 ? 'left-4'
                                 : isNearLast
-                                ? 'right-6 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto'
-                                : 'left-1/2 -translate-x-1/2'
-                            }`} />
+                                  ? 'right-6 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto'
+                                  : 'left-1/2 -translate-x-1/2'
+                              }`} />
                           </div>
 
                           {/* Top Percentage Label */}
-                          <span className={`text-[10px] font-bold mb-1 transition-colors ${
-                            isSelected ? 'text-amber-700 scale-110' : 'text-gray-600'
-                          }`}>
+                          <span className={`text-[10px] font-bold mb-1 transition-colors ${isSelected ? 'text-amber-700 scale-110' : 'text-gray-600'
+                            }`}>
                             {rate}%
                           </span>
 
                           {/* Capsule Column Track */}
-                          <div className={`w-full max-w-[28px] h-24 bg-amber-100/60 rounded-xl overflow-hidden flex flex-col justify-end relative transition-all ${
-                            isSelected ? 'ring-2 ring-amber-500 scale-105 shadow-md' : 'group-hover:ring-1 group-hover:ring-amber-400'
-                          }`}>
-                            <div 
+                          <div className={`w-full max-w-[28px] h-24 bg-amber-100/60 rounded-xl overflow-hidden flex flex-col justify-end relative transition-all ${isSelected ? 'ring-2 ring-amber-500 scale-105 shadow-md' : 'group-hover:ring-1 group-hover:ring-amber-400'
+                            }`}>
+                            <div
                               className="w-full bg-amber-400 rounded-xl overflow-hidden flex flex-col justify-end transition-all duration-300"
                               style={{ height: `${barFillPercent}%` }}
                             >
-                              <div 
+                              <div
                                 className="w-full bg-emerald-500 rounded-xl transition-all duration-500"
                                 style={{ height: `${Math.min(Math.round(soldRatio * 100), 100)}%` }}
                               />
@@ -441,9 +481,8 @@ export default function SellerShareView() {
                           </div>
 
                           {/* Bottom Date Label */}
-                          <span className={`text-[10px] mt-1.5 font-bold transition-colors ${
-                            isSelected ? 'text-amber-900 font-black' : 'text-gray-500'
-                          }`}>
+                          <span className={`text-[10px] mt-1.5 font-bold transition-colors ${isSelected ? 'text-amber-900 font-black' : 'text-gray-500'
+                            }`}>
                             {t.date ? t.date.split('-').slice(1).reverse().join('/') : ''}
                           </span>
                         </div>
@@ -470,9 +509,7 @@ export default function SellerShareView() {
           )}
         </div>
 
-        <footer className="text-center py-6 text-xs text-gray-400 select-none">
-          PX Daily Report System • ระบบรายงานยอดขายส่วนบุคคล
-        </footer>
+        <Footer title="PX Daily Report System • ระบบรายงานยอดขายส่วนบุคคล " />
       </main>
     </div>
   );

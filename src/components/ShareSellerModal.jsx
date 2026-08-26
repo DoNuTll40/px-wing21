@@ -172,7 +172,7 @@ export default function ShareSellerModal({ isOpen, onClose, seller }) {
             </div>
             <div className="grid grid-cols-4 gap-1.5 bg-gray-50/80 p-1.5 rounded-2xl border border-gray-200/80">
               {[
-                { label: 'หมดอายุทันที (Dev)', value: -1 },
+                // { label: 'หมดอายุทันที (Dev)', value: -1 },
                 { label: '1 วัน', value: 1 },
                 { label: '3 วัน', value: 3 },
                 { label: '7 วัน', value: 7 },

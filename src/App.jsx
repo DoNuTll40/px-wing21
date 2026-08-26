@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { BarChart3, ExternalLink } from 'lucide-react';
 import Header from './components/Header';
 import SellerAccordion from './components/SellerAccordion';
 import BottomBar from './components/BottomBar';
@@ -60,12 +59,11 @@ export default function App() {
     message: ''
   });
 
-
   const [isSaved, setIsSaved] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🟢 ดึงข้อมูลสดจาก Neon DB เท่านั้น (ไม่ผ่าน localStorage แล้ว)
+  // 🟢 ดึงข้อมูลสดจาก Neon DB
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -97,10 +95,20 @@ export default function App() {
 
         return {
           ...p,
-          sent: todayDbItem ? todayDbItem.sent : '',
-          sold: todayDbItem ? todayDbItem.sold : '',
-          remain: todayDbItem ? todayDbItem.remain : '',
-          prev_remain: prevReportMap[pIdStr] !== undefined ? prevReportMap[pIdStr] : null
+          sent: todayDbItem ? (todayDbItem.sent ?? '') : '',
+          sold: todayDbItem ? (todayDbItem.sold ?? '') : '',
+          remain: todayDbItem ? (todayDbItem.remain ?? '') : '',
+          prev_remain: prevReportMap[pIdStr] !== undefined ? prevReportMap[pIdStr] : null,
+          
+          // 🎁 คืนค่าสถานะโปรโมชั่น 1 แถม 1 และโหมดคำนวณที่บันทึกไว้
+          is_promo: todayDbItem ? Boolean(todayDbItem.is_promo) : false,
+          free_qty: todayDbItem ? (Number(todayDbItem.free_qty) || 0) : 0,
+          original_sent: todayDbItem && todayDbItem.original_sent !== null && todayDbItem.original_sent !== undefined
+            ? Number(todayDbItem.original_sent)
+            : null,
+          calc_mode: todayDbItem ? (todayDbItem.calc_mode || 'AUTO_REMAIN') : 'AUTO_REMAIN',
+          promo_remainder: todayDbItem ? (Number(todayDbItem.promo_remainder) || 0) : 0,
+          price_snapshot: todayDbItem ? (todayDbItem.price_snapshot ?? p.price) : (p.price ?? 0),
         };
       });
 
@@ -151,6 +159,7 @@ export default function App() {
       const newSeller = await createSeller(name, sellers.length + 1);
       setSellers((prev) => [...prev, newSeller]);
     } catch (err) {
+      console.error(err);
       alert('เกิดข้อผิดพลาดในการเพิ่มผู้ฝากขาย');
     }
   };
@@ -169,30 +178,56 @@ export default function App() {
     }
   };
 
-  const handleAddProduct = async (sellerId, name, unit) => {
+  const handleAddProduct = async (sellerId, name, unit, price = 0) => {
     try {
       const sellerProducts = products.filter((p) => String(p.seller_id) === String(sellerId));
-      const newProduct = await createProduct(sellerId, name, unit, sellerProducts.length + 1);
-      setProducts((prev) => [...prev, { ...newProduct, sent: '', sold: '', remain: '' }]);
+      const sortOrder = sellerProducts.length + 1;
+
+      const newProduct = await createProduct(sellerId, name, unit, price, sortOrder);
+
+      setProducts((prev) => [
+        ...prev,
+        {
+          ...newProduct,
+          sent: '',
+          sold: '',
+          remain: '',
+          price: Number(price) || 0,
+          is_promo: false,
+          free_qty: 0,
+          original_sent: null,
+          calc_mode: 'AUTO_REMAIN',
+          promo_remainder: 0,
+          price_snapshot: Number(price) || 0
+        }
+      ]);
     } catch (err) {
+      console.error(err);
       alert('เกิดข้อผิดพลาดในการเพิ่มสินค้า');
     }
   };
 
-  const handleUpdateProduct = async (id, name, unit) => {
+  const handleUpdateProduct = async (id, name, unit, price = 0) => {
     try {
-      const updated = await updateProduct(id, name, unit);
+      const updated = await updateProduct(id, name, unit, price);
       if (updated) {
         setProducts((prev) =>
           prev.map((p) =>
-            String(p.id) === String(id)
-              ? { ...p, name: updated.name, unit: updated.unit }
+            p.id === id
+              ? {
+                  ...p,
+                  name: updated.name,
+                  unit: updated.unit,
+                  price: Number(price) || 0,
+                  price_snapshot: Number(price) || 0
+                }
               : p
           )
         );
       }
     } catch (err) {
       console.error('handleUpdateProduct error:', err);
+      alert('เกิดข้อผิดพลาดในการแก้ไขสินค้า');
       throw err;
     }
   };
@@ -239,6 +274,38 @@ export default function App() {
     }
   };
 
+  // 🛠️ Helper แปลงข้อมูลสินค้าเป็น Payload พร้อม Snapshots ครบถ้วน
+  const prepareReportPayload = (productsList, sellersList) => {
+    return productsList.map((p) => {
+      const seller = (sellersList || []).find((s) => String(s.id) === String(p.seller_id));
+      const sellerName = p.seller_name || (seller ? seller.name : null);
+      const isPromo = Boolean(p.is_promo);
+
+      return {
+        seller_id: Number(p.seller_id),
+        product_id: Number(p.id),
+
+        // 📸 Snapshots
+        seller_name_snapshot: sellerName ? String(sellerName).trim() : null,
+        product_name_snapshot: p.name ? String(p.name).trim() : null,
+        unit_snapshot: p.unit ? String(p.unit).trim() : 'ชิ้น',
+        price_snapshot: Number(p.price_snapshot ?? p.price ?? 0),
+
+        // 🔢 ยอดหลักคำนวณเงิน (ยอดสุทธิ)
+        sent: Number(p.sent) || 0,
+        sold: Number(p.sold) || 0,
+        remain: Number(p.remain) || 0,
+
+        // 🎁 ข้อมูลโปรโมชั่น 1 แถม 1 & สถานะโหมดคำนวณ
+        is_promo: isPromo,
+        free_qty: isPromo ? (Number(p.free_qty) || 0) : 0,
+        original_sent: isPromo ? (Number(p.original_sent) || Number(p.sent)) : null,
+        calc_mode: p.calc_mode || 'AUTO_REMAIN',
+        promo_remainder: isPromo ? (Number(p.promo_remainder) || 0) : 0,
+      };
+    });
+  };
+
   // 🟢 1. บันทึกข้อมูลลง DB อย่างเดียว
   const handleSaveOnly = async () => {
     if (sellers.length === 0) {
@@ -248,15 +315,9 @@ export default function App() {
 
     try {
       setIsSubmitting(true);
-      const reportItems = products.map((p) => ({
-        seller_id: p.seller_id,
-        product_id: p.id,
-        sent: p.sent,
-        sold: p.sold,
-        remain: p.remain
-      }));
-
+      const reportItems = prepareReportPayload(products, sellers);
       await saveDailyReport(reportItems);
+
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2500);
     } catch (err) {
@@ -276,14 +337,7 @@ export default function App() {
 
     try {
       setIsSubmitting(true);
-      const reportItems = products.map((p) => ({
-        seller_id: p.seller_id,
-        product_id: p.id,
-        sent: p.sent,
-        sold: p.sold,
-        remain: p.remain
-      }));
-
+      const reportItems = prepareReportPayload(products, sellers);
       await saveDailyReport(reportItems);
 
       const reportText = generateReportText(sellers, products);
@@ -301,6 +355,15 @@ export default function App() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleShowAlert = (title, message) => {
+    setAlertInfo({
+      isOpen: true,
+      type: 'error',
+      title: title || 'แจ้งเตือน',
+      message: message || ''
+    });
   };
 
   return (
@@ -360,6 +423,7 @@ export default function App() {
                                       onUpdateSeller={handleUpdateSeller}
                                       onEditProduct={(prod) => setEditingProduct(prod)}
                                       onShareSeller={(s) => setSharingSeller(s)}
+                                      onShowAlert={handleShowAlert}
                                       dragHandleProps={provided.dragHandleProps}
                                     />
                                   </div>
@@ -376,7 +440,7 @@ export default function App() {
               </main>
             </div>
 
-            <Footer  />
+            <Footer />
 
             {sellers.length > 0 && (
               <BottomBar
@@ -434,7 +498,6 @@ export default function App() {
               message={alertInfo.message}
               onClose={() => setAlertInfo((prev) => ({ ...prev, isOpen: false }))}
             />
-
 
             <InstallPWA />
           </div>

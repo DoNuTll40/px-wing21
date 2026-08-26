@@ -12,7 +12,7 @@ export const getTodayThaiDate = () => {
 };
 
 /**
- * ดึงรายงานของวันที่ระบุ
+ * ดึงรายงานของวันที่ระบุ (รวมสถานะโหมดคำนวณและเศษโปรโมชั่น)
  */
 export const getTodayReport = async (reportDate) => {
   const targetDate = reportDate || getTodayThaiDate();
@@ -24,9 +24,15 @@ export const getTodayReport = async (reportDate) => {
         COALESCE(r.seller_name_snapshot, s.name) AS seller_name,
         COALESCE(r.product_name_snapshot, p.name) AS product_name,
         COALESCE(r.unit_snapshot, p.unit, 'ชิ้น') AS unit,
+        COALESCE(r.price_snapshot, p.price, 0) AS price,
         r.sent, 
         r.sold, 
-        r.remain 
+        r.remain,
+        COALESCE(r.is_promo, FALSE) AS is_promo,
+        COALESCE(r.free_qty, 0) AS free_qty,
+        r.original_sent,
+        COALESCE(r.calc_mode, 'AUTO_REMAIN') AS calc_mode,
+        COALESCE(r.promo_remainder, 0) AS promo_remainder
       FROM reports r
       LEFT JOIN sellers s ON r.seller_id = s.id
       LEFT JOIN products p ON r.product_id = p.id
@@ -62,7 +68,7 @@ export const getLatestPreviousReports = async (reportDate) => {
 };
 
 /**
- * บันทึกรายงานประจำวันพร้อม Snapshot ชื่อผู้ฝาก ชื่อสินค้า และหน่วยนับ
+ * บันทึกรายงานประจำวันพร้อม Snapshot ครบทุกฟิลด์
  */
 export const saveDailyReport = async (reportItems, reportDate) => {
   if (!reportItems || reportItems.length === 0) return [];
@@ -80,13 +86,27 @@ export const saveDailyReport = async (reportItems, reportDate) => {
       const productId = Number(item.product_id);
       const sellerNameSnapshot = item.seller_name_snapshot ? String(item.seller_name_snapshot).trim() : null;
       const productNameSnapshot = item.product_name_snapshot ? String(item.product_name_snapshot).trim() : null;
+      
       const unitValue = item.unit_snapshot || item.unit;
       const unitSnapshot = unitValue ? String(unitValue).trim() : null;
+
+      const priceValue = item.price_snapshot ?? item.price;
+      const priceSnapshot = priceValue !== undefined && priceValue !== '' ? Number(priceValue) : 0;
+
       const sent = Number(item.sent) || 0;
       const sold = Number(item.sold) || 0;
       const remain = item.remain !== undefined && item.remain !== ''
         ? Number(item.remain)
         : (sent - sold);
+
+      const isPromo = Boolean(item.is_promo);
+      const freeQty = isPromo ? (Number(item.free_qty) || 0) : 0;
+      const originalSent = isPromo && item.original_sent !== undefined && item.original_sent !== null
+        ? Number(item.original_sent)
+        : null;
+
+      const calcMode = item.calc_mode || 'AUTO_REMAIN';
+      const promoRemainder = isPromo ? (Number(item.promo_remainder) || 0) : 0;
 
       return sql`
         INSERT INTO reports (
@@ -96,9 +116,15 @@ export const saveDailyReport = async (reportItems, reportDate) => {
           seller_name_snapshot, 
           product_name_snapshot, 
           unit_snapshot,
+          price_snapshot,
           sent, 
           sold, 
-          remain
+          remain,
+          is_promo, 
+          free_qty, 
+          original_sent,
+          calc_mode,
+          promo_remainder
         )
         VALUES (
           ${targetDate}::date, 
@@ -107,9 +133,15 @@ export const saveDailyReport = async (reportItems, reportDate) => {
           ${sellerNameSnapshot}, 
           ${productNameSnapshot}, 
           ${unitSnapshot},
+          ${priceSnapshot},
           ${sent}, 
           ${sold}, 
-          ${remain}
+          ${remain},
+          ${isPromo}, 
+          ${freeQty}, 
+          ${originalSent},
+          ${calcMode},
+          ${promoRemainder}
         )
         RETURNING *
       `;

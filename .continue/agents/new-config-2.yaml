@@ -1,0 +1,23 @@
+name: Local Config
+version: 1.0.0
+schema:
+  - name: Qwen
+    provider: Ollama
+    model: qwen2.5-coder:7b
+    apiBase: http://127.0.0.1:11434/
+    roles:
+      - chat
+      - edit
+      - apply
+  - name: Qwen
+    provider: Ollama
+    model: qwen2.5-coder:7b
+    apiBase: http://127.0.0.1:11434/
+    roles:
+      - autocomplete
+  - name: Qwen
+    provider: Ollama
+    model: qwen2.5-coder:7b
+    apiBase: http://127.0.0.1:11434/
+    roles:
+      - embed

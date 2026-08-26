@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Sparkles, CheckCircle2, AlertCircle, X, PackagePlus } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle2, X, PackagePlus } from 'lucide-react';
 
 export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('ชิ้น');
+  const [price, setPrice] = useState('');
   const [isCustomUnit, setIsCustomUnit] = useState(false);
   const [customUnit, setCustomUnit] = useState('');
 
@@ -89,9 +90,14 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
       ? (customUnit.trim() || 'ชิ้น')
       : (unit || 'ชิ้น');
 
-    onAdd(sellerId, name.trim(), finalUnit);
+    const finalPrice = price !== '' ? Number(price) : 0;
+
+    // ส่ง sellerId, name, finalUnit, finalPrice
+    onAdd(sellerId, name.trim(), finalUnit, finalPrice);
+    
     setName('');
     setUnit('ชิ้น');
+    setPrice('');
     setIsCustomUnit(false);
     setCustomUnit('');
     setAiStatus(null);
@@ -106,7 +112,7 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: '100%', opacity: 0 }}
           transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-          className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl transition-all border border-amber-100"
+          className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl transition-all border border-amber-100 max-h-[90vh] overflow-y-auto"
         >
           {/* Header */}
           <div className="flex justify-between items-center pb-3 mb-3.5 border-b border-gray-100">
@@ -118,7 +124,7 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
                 <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
                   เพิ่มรายการสินค้า
                 </h3>
-                <p className="text-[11px] text-gray-400">ระบุชื่อสินค้าและหน่วยนับ</p>
+                <p className="text-[11px] text-gray-400">ระบุชื่อสินค้า หน่วยนับ และราคา</p>
               </div>
             </div>
 
@@ -249,7 +255,7 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
                 </button>
               </div>
 
-              {/* ช่องพิมพ์หน่วยนับเองเมื่อเลือก "อื่นๆ" */}
+              {/* ช่องพิมพ์หน่วยนับเอง (ปรับขนาด px-3.5 py-2.5 เท่ากับชื่อสินค้า) */}
               {isCustomUnit && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
@@ -262,11 +268,27 @@ export default function AddProductSheet({ isOpen, onClose, onAdd, sellerId }) {
                     value={customUnit}
                     onChange={(e) => setCustomUnit(e.target.value)}
                     placeholder="พิมพ์หน่วยนับ เช่น ห่อ, แพ็ค, จาน, ลูก, แท่ง..."
-                    className="w-full px-3 py-2 border border-amber-400 bg-amber-50/30 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-amber-200 transition-all"
+                    className="w-full px-3.5 py-2.5 border border-amber-300 hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/60 rounded-xl text-sm font-medium focus:outline-none transition-all shadow-2xs"
                     autoFocus
                   />
                 </motion.div>
               )}
+            </div>
+
+            {/* ราคาต่อหน่วย (แอบเก็บไว้) */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                ราคาต่อหน่วย (บาท) <span className="text-[10px] text-gray-400 font-normal">(ไม่บังคับ)</span>
+              </label>
+              <input
+                type="number"
+                step="0.25"
+                min="0"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="เช่น 20 หรือ 25.50"
+                className="w-full px-3.5 py-2.5 border border-amber-300 hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/60 rounded-xl text-sm font-medium focus:outline-none transition-all shadow-2xs"
+              />
             </div>
 
             {/* Action Buttons */}

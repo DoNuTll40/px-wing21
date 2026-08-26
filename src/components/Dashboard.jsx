@@ -55,6 +55,10 @@ export default function Dashboard({ onBack }) {
   useEffect(() => {
     document.title = 'Dashboard - PX Daily Report';
     loadData();
+
+    return () => {
+      document.title = 'PX Daily Report';
+    };
   }, []);
 
   const toggleSeller = (sellerId) => {

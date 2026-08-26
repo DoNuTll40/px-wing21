@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Sparkles, CheckCircle2, X, Package } from 'lucide-react';
 
 export default function EditProductSheet({ isOpen, onClose, onSave, product }) {
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('ชิ้น');
+  const [price, setPrice] = useState('');
   const [isCustomUnit, setIsCustomUnit] = useState(false);
   const [customUnit, setCustomUnit] = useState('');
 
@@ -17,6 +18,7 @@ export default function EditProductSheet({ isOpen, onClose, onSave, product }) {
   useEffect(() => {
     if (product && isOpen) {
       setName(product.name || '');
+      setPrice(product.price !== undefined && product.price !== null ? product.price : '');
       const currentUnit = product.unit || 'ชิ้น';
       if (PRESET_UNITS.includes(currentUnit)) {
         setUnit(currentUnit);
@@ -106,7 +108,10 @@ export default function EditProductSheet({ isOpen, onClose, onSave, product }) {
       ? (customUnit.trim() || 'ชิ้น')
       : (unit || 'ชิ้น');
 
-    onSave(product.id, name.trim(), finalUnit);
+    const finalPrice = price !== '' ? Number(price) : 0;
+
+    // ส่ง id, name, unit, price
+    onSave(product.id, name.trim(), finalUnit, finalPrice);
     onClose();
   };
 
@@ -118,7 +123,7 @@ export default function EditProductSheet({ isOpen, onClose, onSave, product }) {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: '100%', opacity: 0 }}
           transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-          className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl transition-all border border-amber-100"
+          className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl transition-all border border-amber-100 max-h-[90vh] overflow-y-auto"
         >
           {/* Header */}
           <div className="flex justify-between items-center pb-3 mb-3.5 border-b border-gray-100">
@@ -130,7 +135,7 @@ export default function EditProductSheet({ isOpen, onClose, onSave, product }) {
                 <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
                   แก้ไขรายการสินค้า
                 </h3>
-                <p className="text-[11px] text-gray-400">แก้ไขชื่อสินค้าและหน่วยนับ</p>
+                <p className="text-[11px] text-gray-400">แก้ไขชื่อสินค้า หน่วยนับ และราคา</p>
               </div>
             </div>
 
@@ -154,16 +159,17 @@ export default function EditProductSheet({ isOpen, onClose, onSave, product }) {
                   type="button"
                   onClick={handleCheckSpell}
                   disabled={isChecking || !name.trim()}
-                  className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${isChecking
-                    ? 'bg-amber-50 text-amber-600 border border-amber-300 animate-pulse'
-                    : aiStatus === 'corrected'
+                  className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                    isChecking
+                      ? 'bg-amber-50 text-amber-600 border border-amber-300 animate-pulse'
+                      : aiStatus === 'corrected'
                       ? 'bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs font-extrabold'
                       : aiStatus === 'ok'
-                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                        : aiStatus === 'error'
-                          ? 'bg-red-50 text-red-600 border border-red-200'
-                          : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 active:scale-95 disabled:opacity-40'
-                    }`}
+                      ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                      : aiStatus === 'error'
+                      ? 'bg-red-50 text-red-600 border border-red-200'
+                      : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 active:scale-95 disabled:opacity-40'
+                  }`}
                 >
                   {isChecking ? (
                     <>
@@ -238,30 +244,32 @@ export default function EditProductSheet({ isOpen, onClose, onSave, product }) {
                       key={u}
                       type="button"
                       onClick={() => handleSelectUnit(u)}
-                      className={`py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${isSelected
-                        ? 'bg-amber-50 border-amber-500 text-amber-800 shadow-2xs font-extrabold'
-                        : 'border-gray-200 bg-gray-50/60 text-gray-700 hover:bg-amber-50/40'
-                        }`}
+                      className={`py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-amber-50 border-amber-500 text-amber-800 shadow-2xs font-extrabold'
+                          : 'border-gray-200 bg-gray-50/60 text-gray-700 hover:bg-amber-50/40'
+                      }`}
                     >
                       {u}
                     </button>
                   );
                 })}
 
-                {/* ปุ่มตัวเลือก "อื่นๆ" (เอารูปมือออก) */}
+                {/* ปุ่มตัวเลือก "อื่นๆ" */}
                 <button
                   type="button"
                   onClick={handleSelectOther}
-                  className={`py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer col-span-2 ${isCustomUnit
-                    ? 'bg-amber-50 border-amber-500 text-amber-800 shadow-2xs font-extrabold'
-                    : 'border-gray-200 bg-gray-50/60 text-gray-700 hover:bg-amber-50/40'
-                    }`}
+                  className={`py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer col-span-2 ${
+                    isCustomUnit
+                      ? 'bg-amber-50 border-amber-500 text-amber-800 shadow-2xs font-extrabold'
+                      : 'border-gray-200 bg-gray-50/60 text-gray-700 hover:bg-amber-50/40'
+                  }`}
                 >
                   อื่นๆ (พิมพ์เอง)
                 </button>
               </div>
 
-              {/* ช่องพิมพ์หน่วยนับเองเมื่อเลือก "อื่นๆ" */}
+              {/* ช่องพิมพ์หน่วยนับเอง */}
               {isCustomUnit && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
@@ -274,11 +282,27 @@ export default function EditProductSheet({ isOpen, onClose, onSave, product }) {
                     value={customUnit}
                     onChange={(e) => setCustomUnit(e.target.value)}
                     placeholder="พิมพ์หน่วยนับ เช่น ห่อ, แพ็ค, จาน, ลูก, แท่ง..."
-                    className="w-full px-3 py-2 border border-amber-400 bg-amber-50/30 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-amber-200 transition-all"
+                    className="w-full px-3.5 py-2.5 border border-amber-300 hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/60 rounded-xl text-sm font-medium focus:outline-none transition-all shadow-2xs"
                     autoFocus
                   />
                 </motion.div>
               )}
+            </div>
+
+            {/* ราคาต่อหน่วย */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                ราคาต่อหน่วย (บาท) <span className="text-[10px] text-gray-400 font-normal">(ไม่บังคับ)</span>
+              </label>
+              <input
+                type="number"
+                step="0.25"
+                min="0.00"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="เช่น 20 หรือ 25.50"
+                className="w-full px-3.5 py-2.5 border border-amber-300 hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/60 rounded-xl text-sm font-medium focus:outline-none transition-all shadow-2xs"
+              />
             </div>
 
             {/* Action Buttons */}

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Save, Copy, Check, Loader2 } from 'lucide-react';
 
 export default function BottomBar({ onSave, onGenerate, isSaved, isCopied, isSubmitting }) {

@@ -12,7 +12,8 @@ import {
   ChevronRight,
   Loader2, 
   X,
-  CalendarDays
+  CalendarDays,
+  Gift
 } from 'lucide-react';
 import { 
   getReportHistoryGrouped, 
@@ -253,6 +254,8 @@ export default function HistorySheet({ isOpen, onClose }) {
 
   const currentSellersGroup = selectedDate ? historyData[selectedDate] || {} : {};
 
+  console.log(currentSellersGroup);
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-end sm:items-center p-0 sm:p-4">
@@ -438,7 +441,14 @@ export default function HistorySheet({ isOpen, onClose }) {
                             </span>
 
                             <div className="flex items-center gap-2 text-[11px] text-gray-600 shrink-0 font-medium">
-                              <span>ส่ง <strong className="text-gray-900 font-bold">{p.sent}</strong></span>
+                              <span>
+                                ส่ง <strong className="text-gray-900 font-bold">{p.sent}</strong>
+                                {Boolean(p.is_promo) && p.original_sent && (
+                                  <span className="text-[10px] text-amber-600 font-normal ml-0.5">
+                                    (เดิม {p.original_sent})
+                                  </span>
+                                )}
+                              </span>
                               <span>ขาย <strong className="text-emerald-600 font-bold">{p.sold}</strong></span>
                               <span>เหลือ <strong className="text-purple-600 font-bold">{p.remain}</strong></span>
                               <span className="text-[10px] text-gray-400 min-w-5 text-right font-medium">{p.unit || 'ชิ้น'}</span>

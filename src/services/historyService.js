@@ -19,7 +19,7 @@ export const getReportHistoryGrouped = async (limitDays = 7, offsetDays = 0) => 
 
     const dateList = distinctDates.map((d) => d.report_date);
 
-    // 2. ดึงข้อมูลรายงานเฉพาะวันที่อยู่ในช่วง (ใช้ Snapshot ชื่อเดิมและหน่วยนับเดิม ณ วันนั้น)
+    // 2. ดึงข้อมูลรายงานเฉพาะวันที่อยู่ในช่วง (ดึงฟิลด์โปรโมชั่น 1 แถม 1 และราคามาให้ครบ)
     const data = await sql`
       SELECT 
         r.id,
@@ -27,6 +27,10 @@ export const getReportHistoryGrouped = async (limitDays = 7, offsetDays = 0) => 
         r.sent,
         r.sold,
         r.remain,
+        COALESCE(r.price_snapshot, p.price, 0) AS price,
+        COALESCE(r.is_promo, FALSE) AS is_promo,
+        COALESCE(r.free_qty, 0) AS free_qty,
+        r.original_sent,
         s.id AS seller_id,
         COALESCE(r.seller_name_snapshot, s.name, 'ไม่ระบุผู้ฝาก') AS seller_name,
         p.id AS product_id,
@@ -85,7 +89,7 @@ export const getAllAvailableDates = async () => {
 };
 
 /**
- * ดึงข้อมูลรายงานของวันที่ระบุเจาะจง (เมื่อเลือกจาก DatePicker ใช้ Snapshot ชื่อและหน่วยเดิม)
+ * ดึงข้อมูลรายงานของวันที่ระบุเจาะจง (เมื่อเลือกจาก DatePicker)
  */
 export const getReportBySpecificDate = async (dateString) => {
   try {
@@ -96,6 +100,10 @@ export const getReportBySpecificDate = async (dateString) => {
         r.sent,
         r.sold,
         r.remain,
+        COALESCE(r.price_snapshot, p.price, 0) AS price,
+        COALESCE(r.is_promo, FALSE) AS is_promo,
+        COALESCE(r.free_qty, 0) AS free_qty,
+        r.original_sent,
         s.id AS seller_id,
         COALESCE(r.seller_name_snapshot, s.name, 'ไม่ระบุผู้ฝาก') AS seller_name,
         p.id AS product_id,

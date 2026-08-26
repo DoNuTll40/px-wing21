@@ -14,12 +14,13 @@ export async function getProducts() {
   }
 }
 
-// เพิ่มสินค้าใหม่
-export async function createProduct(sellerId, name, unit = 'ชิ้น', sortOrder = 0) {
+// เพิ่มสินค้าใหม่ (รองรับ price)
+export async function createProduct(sellerId, name, unit = 'ชิ้น', price = 0, sortOrder = 0) {
   try {
+    const numPrice = price !== undefined && price !== '' ? Number(price) : 0;
     const result = await sql`
-      INSERT INTO products (seller_id, name, unit, sort_order) 
-      VALUES (${Number(sellerId)}, ${name}, ${unit}, ${Number(sortOrder)}) 
+      INSERT INTO products (seller_id, name, unit, price, sort_order) 
+      VALUES (${Number(sellerId)}, ${name}, ${unit}, ${numPrice}, ${Number(sortOrder)}) 
       RETURNING *
     `;
     return result[0];
@@ -29,12 +30,16 @@ export async function createProduct(sellerId, name, unit = 'ชิ้น', sortO
   }
 }
 
-// อัปเดตชื่อสินค้าและหน่วยนับ
-export async function updateProduct(id, name, unit) {
+// อัปเดตชื่อสินค้า, หน่วยนับ และราคา
+export async function updateProduct(id, name, unit, price = 0) {
   try {
+    const numPrice = price !== undefined && price !== '' ? Number(price) : 0;
     const result = await sql`
       UPDATE products 
-      SET name = ${name}, unit = ${unit} 
+      SET 
+        name = ${name}, 
+        unit = ${unit},
+        price = ${numPrice}
       WHERE id = ${Number(id)}
       RETURNING *
     `;

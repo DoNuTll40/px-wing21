@@ -35,6 +35,7 @@ import { saveDailyReport, getTodayReport, getLatestPreviousReports } from './ser
 import { generateReportText } from './utils/generateReport';
 import { copyToClipboard } from './utils/clipboard';
 import Footer from './components/Footer';
+import AdminGuard from './components/AdminGuard';
 
 export default function App() {
   const navigate = useNavigate();
@@ -371,142 +372,148 @@ export default function App() {
       <Route
         path="/"
         element={
-          <div className="min-h-screen bg-gray-50 pb-28 font-sans text-gray-900 flex flex-col justify-between">
-            <div>
-              <Header
-                onOpenAddSeller={() => setIsAddSellerOpen(true)}
-                isDebugOpen={isDebugOpen}
-                onToggleDebug={() => setIsDebugOpen(!isDebugOpen)}
-                onOpenHistory={() => setIsHistoryOpen(true)}
-                onOpenDashboard={() => navigate('/dashboard')}
+          <AdminGuard>
+            <div className="min-h-screen bg-gray-50 pb-28 font-sans text-gray-900 flex flex-col justify-between">
+              <div>
+                <Header
+                  onOpenAddSeller={() => setIsAddSellerOpen(true)}
+                  isDebugOpen={isDebugOpen}
+                  onToggleDebug={() => setIsDebugOpen(!isDebugOpen)}
+                  onOpenHistory={() => setIsHistoryOpen(true)}
+                  onOpenDashboard={() => navigate('/dashboard')}
+                />
+
+                <main className="max-w-2xl mx-auto p-4 pb-0">
+                  {isDebugOpen && <DbHealthCheck />}
+
+                  {loading ? (
+                    <Loading />
+                  ) : sellers.length === 0 ? (
+                    <EmptyState onAddSeller={() => setIsAddSellerOpen(true)} />
+                  ) : (
+                    <DragDropContext onDragEnd={handleDragEnd}>
+                      <Droppable droppableId="sellers-list">
+                        {(provided) => (
+                          <div
+                            {...provided.droppableProps}
+                            ref={provided.innerRef}
+                            className="space-y-3"
+                          >
+                            {sellers.map((seller, index) => {
+                              const sellerProducts = products.filter(
+                                (p) => String(p.seller_id) === String(seller.id)
+                              );
+
+                              return (
+                                <Draggable key={String(seller.id)} draggableId={String(seller.id)} index={index}>
+                                  {(provided, snapshot) => (
+                                    <div
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      className={`transition-shadow ${snapshot.isDragging ? 'shadow-lg rounded-2xl z-50 opacity-90' : ''}`}
+                                    >
+                                      <SellerAccordion
+                                        seller={seller}
+                                        products={sellerProducts}
+                                        onProductChange={handleProductChange}
+                                        onDeleteProduct={handleDeleteProductDirectly}
+                                        onDeleteSeller={(id) => setDeleteTarget({ type: 'seller', id })}
+                                        onOpenAddProduct={(sellerId) => {
+                                          setSelectedSellerId(sellerId);
+                                          setIsAddProductOpen(true);
+                                        }}
+                                        onUpdateSeller={handleUpdateSeller}
+                                        onEditProduct={(prod) => setEditingProduct(prod)}
+                                        onShareSeller={(s) => setSharingSeller(s)}
+                                        onShowAlert={handleShowAlert}
+                                        dragHandleProps={provided.dragHandleProps}
+                                      />
+                                    </div>
+                                  )}
+                                </Draggable>
+                              );
+                            })}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </DragDropContext>
+                  )}
+                </main>
+              </div>
+
+              <Footer />
+
+              {sellers.length > 0 && (
+                <BottomBar
+                  onSave={handleSaveOnly}
+                  onGenerate={handleGenerateReport}
+                  isSaved={isSaved}
+                  isCopied={isCopied}
+                  isSubmitting={isSubmitting}
+                />
+              )}
+
+              <AddSellerSheet
+                isOpen={isAddSellerOpen}
+                onClose={() => setIsAddSellerOpen(false)}
+                onAdd={handleAddSeller}
               />
 
-              <main className="max-w-2xl mx-auto p-4 pb-0">
-                {isDebugOpen && <DbHealthCheck />}
+              <AddProductSheet
+                isOpen={isAddProductOpen}
+                onClose={() => setIsAddProductOpen(false)}
+                onAdd={handleAddProduct}
+                sellerId={selectedSellerId}
+              />
 
-                {loading ? (
-                  <Loading />
-                ) : sellers.length === 0 ? (
-                  <EmptyState onAddSeller={() => setIsAddSellerOpen(true)} />
-                ) : (
-                  <DragDropContext onDragEnd={handleDragEnd}>
-                    <Droppable droppableId="sellers-list">
-                      {(provided) => (
-                        <div
-                          {...provided.droppableProps}
-                          ref={provided.innerRef}
-                          className="space-y-3"
-                        >
-                          {sellers.map((seller, index) => {
-                            const sellerProducts = products.filter(
-                              (p) => String(p.seller_id) === String(seller.id)
-                            );
+              <EditProductSheet
+                isOpen={!!editingProduct}
+                product={editingProduct}
+                onClose={() => setEditingProduct(null)}
+                onSave={handleUpdateProduct}
+              />
 
-                            return (
-                              <Draggable key={String(seller.id)} draggableId={String(seller.id)} index={index}>
-                                {(provided, snapshot) => (
-                                  <div
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    className={`transition-shadow ${snapshot.isDragging ? 'shadow-lg rounded-2xl z-50 opacity-90' : ''}`}
-                                  >
-                                    <SellerAccordion
-                                      seller={seller}
-                                      products={sellerProducts}
-                                      onProductChange={handleProductChange}
-                                      onDeleteProduct={handleDeleteProductDirectly}
-                                      onDeleteSeller={(id) => setDeleteTarget({ type: 'seller', id })}
-                                      onOpenAddProduct={(sellerId) => {
-                                        setSelectedSellerId(sellerId);
-                                        setIsAddProductOpen(true);
-                                      }}
-                                      onUpdateSeller={handleUpdateSeller}
-                                      onEditProduct={(prod) => setEditingProduct(prod)}
-                                      onShareSeller={(s) => setSharingSeller(s)}
-                                      onShowAlert={handleShowAlert}
-                                      dragHandleProps={provided.dragHandleProps}
-                                    />
-                                  </div>
-                                )}
-                              </Draggable>
-                            );
-                          })}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </DragDropContext>
-                )}
-              </main>
+              <ShareSellerModal
+                isOpen={!!sharingSeller}
+                seller={sharingSeller}
+                onClose={() => setSharingSeller(null)}
+              />
+
+              <HistorySheet
+                isOpen={isHistoryOpen}
+                onClose={() => setIsHistoryOpen(false)}
+              />
+
+              <ConfirmDialog
+                isOpen={!!deleteTarget && deleteTarget.type === 'seller'}
+                title="ยืนยันการลบผู้ฝากขาย"
+                message="การลบผู้ฝากขายจะลบได้เฉพาะผู้ฝากขายที่ยังไม่มีประวัติในรายงานย้อนหลังเท่านั้น คุณต้องการลบใช่หรือไม่?"
+                onConfirm={handleConfirmDeleteSeller}
+                onCancel={() => setDeleteTarget(null)}
+              />
+
+              <AlertModal
+                isOpen={alertInfo.isOpen}
+                type={alertInfo.type}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                onClose={() => setAlertInfo((prev) => ({ ...prev, isOpen: false }))}
+              />
+
+              <InstallPWA />
             </div>
-
-            <Footer />
-
-            {sellers.length > 0 && (
-              <BottomBar
-                onSave={handleSaveOnly}
-                onGenerate={handleGenerateReport}
-                isSaved={isSaved}
-                isCopied={isCopied}
-                isSubmitting={isSubmitting}
-              />
-            )}
-
-            <AddSellerSheet
-              isOpen={isAddSellerOpen}
-              onClose={() => setIsAddSellerOpen(false)}
-              onAdd={handleAddSeller}
-            />
-
-            <AddProductSheet
-              isOpen={isAddProductOpen}
-              onClose={() => setIsAddProductOpen(false)}
-              onAdd={handleAddProduct}
-              sellerId={selectedSellerId}
-            />
-
-            <EditProductSheet
-              isOpen={!!editingProduct}
-              product={editingProduct}
-              onClose={() => setEditingProduct(null)}
-              onSave={handleUpdateProduct}
-            />
-
-            <ShareSellerModal
-              isOpen={!!sharingSeller}
-              seller={sharingSeller}
-              onClose={() => setSharingSeller(null)}
-            />
-
-            <HistorySheet
-              isOpen={isHistoryOpen}
-              onClose={() => setIsHistoryOpen(false)}
-            />
-
-            <ConfirmDialog
-              isOpen={!!deleteTarget && deleteTarget.type === 'seller'}
-              title="ยืนยันการลบผู้ฝากขาย"
-              message="การลบผู้ฝากขายจะลบได้เฉพาะผู้ฝากขายที่ยังไม่มีประวัติในรายงานย้อนหลังเท่านั้น คุณต้องการลบใช่หรือไม่?"
-              onConfirm={handleConfirmDeleteSeller}
-              onCancel={() => setDeleteTarget(null)}
-            />
-
-            <AlertModal
-              isOpen={alertInfo.isOpen}
-              type={alertInfo.type}
-              title={alertInfo.title}
-              message={alertInfo.message}
-              onClose={() => setAlertInfo((prev) => ({ ...prev, isOpen: false }))}
-            />
-
-            <InstallPWA />
-          </div>
+          </AdminGuard>
         }
       />
 
       <Route
         path="/dashboard"
-        element={<Dashboard onBack={() => navigate('/')} />}
+        element={
+          <AdminGuard>
+            <Dashboard onBack={() => navigate('/')} />
+          </AdminGuard>
+        }
       />
 
       <Route

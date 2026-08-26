@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -22,7 +22,7 @@ import {
 import { getDashboardAnalytics } from '../services/dashboardService';
 import { formatDateThai } from '../utils/formatDate';
 import AIInsightCard from './AIInsightCard';
-import ShareSellerModal from './ShareSellerModal';
+// import ShareSellerModal from './ShareSellerModal';
 
 export default function Dashboard({ onBack }) {
   const [data, setData] = useState(null);
@@ -32,7 +32,7 @@ export default function Dashboard({ onBack }) {
   const [trendViewMode, setTrendViewMode] = useState('chart'); // 'chart' | 'list'
   const [toastMessage, setToastMessage] = useState('');
   const [activeTooltipDate, setActiveTooltipDate] = useState(null);
-  const [sharingSeller, setSharingSeller] = useState(null);
+  // const [sharingSeller, setSharingSeller] = useState(null);
 
   const dashboardCaptureRef = useRef(null);
 
@@ -127,7 +127,7 @@ export default function Dashboard({ onBack }) {
           </button>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 font-medium hidden sm:inline">อัปเดต {lastUpdated} น.</span>
+            <span className="text-xs text-gray-500 font-medium inline">อัปเดต {lastUpdated} น.</span>
 
             <button
               onClick={loadData}

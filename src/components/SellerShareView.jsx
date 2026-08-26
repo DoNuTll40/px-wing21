@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion';
 import {
@@ -8,15 +8,10 @@ import {
   Calendar,
   RefreshCw,
   Copy,
-  Check,
-  Loader2,
   Store,
   BarChart3,
   Archive,
-  RotateCcw,
-  SearchX,
   EyeOff,
-  ClockAlert,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -32,6 +27,7 @@ import { vibrateSuccess } from '../utils/haptics';
 import { parseShareToken } from '../utils/shareCrypto';
 import Footer from './Footer';
 import Loading from './Loading';
+import StatusStateView from './StatusStateView';
 
 // 🔢 Component สำหรับทำตัวเลขวิ่ง (Animated Counter)
 function AnimatedCounter({ value, suffix = '' }) {
@@ -334,70 +330,14 @@ export default function SellerShareView() {
     );
   }
 
-// หน้าจอ Error / Expired (Clean & Secure Guest View)
+  // หน้าจอ Error / Expired (Clean & Secure Guest View)
   if (error || !data || !isValidToken) {
     return (
-      <div className="min-h-screen bg-[#fffdf7] flex flex-col justify-between p-4 sm:p-6 font-sans select-none">
-        {/* โลโก้แบรนด์มุมซ้ายบนแบบเรียบง่าย */}
-        <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shadow-xs shrink-0">
-              <Store size={16} />
-            </div>
-            <div>
-              <h1 className="text-sm font-black text-gray-900 leading-tight">PX Daily Report</h1>
-              <span className="text-[10px] text-amber-800 font-medium block">ระบบรายงานยอดขายส่วนบุคคล</span>
-            </div>
-          </div>
-        </div>
-
-        {/* การ์ดแจ้งเตือนกึ่งกลางหน้าจอ (ไม่มีปุ่มไปหน้าหลัก) */}
-        <main className="max-w-sm w-full mx-auto my-auto py-8">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-            className="bg-white rounded-3xl p-6 sm:p-8 border border-amber-200/90 text-center shadow-xs space-y-4"
-          >
-            {/* Icon Status */}
-            <div
-              className={`relative w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-2xs ${
-                isExpired
-                  ? 'bg-rose-50 border border-rose-200 text-rose-600'
-                  : 'bg-amber-50 border border-amber-200 text-amber-600'
-              }`}
-            >
-              {isExpired ? (
-                <ClockAlert size={32} className="stroke-[1.75]" />
-              ) : (
-                <SearchX size={32} className="stroke-[1.75]" />
-              )}
-              <span
-                className={`absolute -top-2 -right-2 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-2xs ${
-                  isExpired ? 'bg-rose-500' : 'bg-amber-500'
-                }`}
-              >
-                {isExpired ? 'Expired' : '404'}
-              </span>
-            </div>
-
-            {/* ข้อความแจ้งเตือน */}
-            <div className="space-y-2">
-              <h2 className="text-base sm:text-lg font-black text-gray-900">
-                {isExpired ? 'ลิงก์รายงานหมดอายุ' : 'ไม่พบข้อมูลผู้ฝากขาย'}
-              </h2>
-              <p className="text-xs text-gray-500 leading-relaxed max-w-xs mx-auto">
-                {error}
-              </p>
-            </div>
-          </motion.div>
-        </main>
-
-        {/* Footer ด้านล่าง */}
-        <div className="pb-4 px-2">
-          <Footer title="PX Daily Report System • ระบบรายงานยอดขายส่วนบุคคล " />
-        </div>
-      </div>
+      <StatusStateView
+        type={isExpired ? 'expired' : 'invalid'}
+        description={error}
+        routeLabel={`ID / Token: ${rawToken || 'Empty'}`}
+      />
     );
   }
 
@@ -413,6 +353,30 @@ export default function SellerShareView() {
   ];
 
   const currentFilterObj = filterOptions.find(f => f.id === productFilter) || filterOptions[0];
+
+  if (isEverythingHidden) {
+    return (
+      <StatusStateView
+        type="custom"
+        codeText="LOCK"
+        badgeText="NO PERMISSION"
+        title="ไม่มีข้อมูลที่ได้รับอนุญาตให้แสดงผล"
+        description="ผู้แชร์รายงานได้ปิดการแสดงผลของ KPI, รายการสินค้า และกราฟแนวโน้มสำหรับลิงก์นี้"
+        inspectorTitle="SHARE PERMISSIONS INSPECTOR"
+        routeLabel={`Seller: ${seller.name}`}
+        statusTagText="Restricted Access"
+        auditTitle="การตั้งค่าการแชร์"
+        auditItems={[
+          'ยอดสรุปภาพรวม (KPI) : ถูกปิด',
+          'อนุญาตให้เลือกดูประวัติวันอื่นได้ : ถูกปิด',
+          'รายการสินค้าประจำวัน : ถูกปิด',
+          'กราฟยอดขายย้อนหลัง : ถูกปิด'
+        ]}
+        footerHintText="ติดต่อผู้ดูแลร้านเพื่อเปิดสิทธิ์การแสดงผล"
+        systemSubTitle={`รายงานยอดขาย : ${seller.name}`}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#fffdf7] pb-0 font-sans text-gray-900 select-text flex flex-col justify-between select-auto">
@@ -452,7 +416,7 @@ export default function SellerShareView() {
 
               <button
                 type="button"
-                onClick={() => loadData(selectedDate)}
+                onClick={() => window.location.reload()}
                 className="p-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl hover:bg-amber-100 active:rotate-180 transition-all cursor-pointer shadow-2xs"
                 title="รีเฟรชข้อมูลล่าสุด"
               >
@@ -495,21 +459,6 @@ export default function SellerShareView() {
               </div>
             )}
           </div>
-
-          {/* Empty State กรณีไม่มีข้อมูล */}
-          {isEverythingHidden && (
-            <div className="bg-white rounded-3xl p-8 sm:p-12 border border-amber-200/90 text-center shadow-2xs space-y-3">
-              <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
-                <EyeOff size={28} />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-gray-900">ไม่มีข้อมูลที่ได้รับอนุญาตให้แสดงผล</h3>
-                <p className="text-xs text-gray-400 max-w-sm mx-auto">
-                  ผู้แชร์รายงานได้ปิดการแสดงผลของข้อมูลทุกส่วนสำหรับลิงก์นี้
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* 🌟 4 KPI Cards (Animated Number Counter) */}
           {showKpi && (

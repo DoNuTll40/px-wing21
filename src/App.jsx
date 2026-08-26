@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { RefreshCw } from 'lucide-react';
 import Header from './components/Header';
 import SellerAccordion from './components/SellerAccordion';
 import BottomBar from './components/BottomBar';
@@ -36,6 +37,7 @@ import { generateReportText } from './utils/generateReport';
 import { copyToClipboard } from './utils/clipboard';
 import Footer from './components/Footer';
 import AdminGuard from './components/AdminGuard';
+import StatusStateView from './components/StatusStateView';
 
 export default function App() {
   const navigate = useNavigate();
@@ -64,10 +66,18 @@ export default function App() {
   const [isCopied, setIsCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 🔄 Pull to Refresh States & Logic
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartY = useRef(0);
+  const isDraggingPage = useRef(false);
+
+  const PULL_THRESHOLD = 20; // ระยะลาก (px) ที่จะทริกเกอร์โหลดข้อมูล
+
   // 🟢 ดึงข้อมูลสดจาก Neon DB
-  const fetchData = async () => {
+  const fetchData = async (isPull = false) => {
     try {
-      setLoading(true);
+      if (!isPull) setLoading(true);
       const [sellerData, productData, todayReportData, prevReportData] = await Promise.all([
         getSellers(),
         getProducts(),
@@ -117,13 +127,66 @@ export default function App() {
     } catch (err) {
       console.error('Error loading data from database:', err);
     } finally {
-      setLoading(false);
+      if (!isPull) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // 🔄 จัดการ Touch Event สำหรับ Pull-to-Refresh
+  useEffect(() => {
+    const handleTouchStart = (e) => {
+      if (window.scrollY <= 0) {
+        touchStartY.current = e.touches[0].clientY;
+        isDraggingPage.current = true;
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (!isDraggingPage.current || isRefreshing) return;
+
+      const currentY = e.touches[0].clientY;
+      const distance = currentY - touchStartY.current;
+
+      if (distance > 0 && window.scrollY <= 0) {
+        const dampedDistance = Math.min(distance * 0.45, 50);
+        setPullDistance(dampedDistance);
+      } else {
+        setPullDistance(0);
+      }
+    };
+
+    const handleTouchEnd = async () => {
+      if (!isDraggingPage.current) return;
+      isDraggingPage.current = false;
+
+      if (pullDistance >= PULL_THRESHOLD && !isRefreshing) {
+        setIsRefreshing(true);
+        setPullDistance(50);
+
+        try {
+          await fetchData(true);
+        } finally {
+          setIsRefreshing(false);
+          setPullDistance(0);
+        }
+      } else {
+        setPullDistance(0);
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [pullDistance, isRefreshing]);
 
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
@@ -383,7 +446,26 @@ export default function App() {
                   onOpenDashboard={() => navigate('/dashboard')}
                 />
 
-                <main className="max-w-2xl mx-auto p-4 pb-0">
+                <main className="max-w-2xl mx-auto p-4 pb-0 relative">
+                  {/* 🌟 Pull to Refresh Spinner Indicator */}
+                  <div
+                    className="fixed top-14 left-1/2 -translate-x-1/2 z-40 pointer-events-none flex items-center justify-center transition-all duration-150 ease-out"
+                    style={{
+                      transform: `translate(-20%, ${pullDistance > 0 || isRefreshing ? pullDistance : -20}px)`,
+                      opacity: pullDistance > 10 || isRefreshing ? 1 : 0
+                    }}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-white border border-amber-300 shadow-xl shadow-amber-900/10 flex items-center justify-center text-amber-600">
+                      <RefreshCw
+                        size={18}
+                        className={`${isRefreshing ? 'animate-spin' : ''}`}
+                        style={{
+                          transform: isRefreshing ? 'none' : `rotate(${pullDistance * 4.5}deg)`
+                        }}
+                      />
+                    </div>
+                  </div>
+
                   {isDebugOpen && <DbHealthCheck />}
 
                   {loading ? (
@@ -514,6 +596,11 @@ export default function App() {
             <Dashboard onBack={() => navigate('/')} />
           </AdminGuard>
         }
+      />
+
+      <Route 
+        path="*"
+        element={<StatusStateView />}
       />
 
       <Route

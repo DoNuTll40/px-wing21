@@ -1,26 +1,14 @@
-import React from 'react';
 import { Sparkles, Bot, ArrowRight, Zap, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 export default function BentoQuickInsights({ 
   sellers = [], 
   products = [], 
-  onOpenAiChat, 
   onOpenDashboard 
 }) {
-  // Rule-based live insights calculations
-  const totalSent = products.reduce((acc, p) => acc + (Number(p.sent) || 0), 0);
-  const totalSold = products.reduce((acc, p) => acc + (Number(p.sold) || 0), 0);
-  const sellThroughRate = totalSent > 0 ? Math.round((totalSold / totalSent) * 100) : 0;
-
   // Best seller product today
   const topProduct = [...products]
     .filter((p) => Number(p.sold) > 0)
     .sort((a, b) => (Number(b.sold) || 0) - (Number(a.sold) || 0))[0];
-
-  // Highest remaining product
-  const highRemainProduct = [...products]
-    .filter((p) => Number(p.remain) > 0)
-    .sort((a, b) => (Number(b.remain) || 0) - (Number(a.remain) || 0))[0];
 
   // Inactive sellers
   const inactiveSellers = sellers.filter((seller) => {

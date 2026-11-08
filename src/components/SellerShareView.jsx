@@ -301,9 +301,10 @@ export default function SellerShareView() {
   };
 
   // 🔍 กรองรายการสินค้าตาม Filter ที่เลือก
+  const productsList = data?.products;
   const filteredProducts = useMemo(() => {
-    if (!data?.products) return [];
-    return data.products.filter((p) => {
+    if (!productsList) return [];
+    return productsList.filter((p) => {
       const sentNum = Number(p.sent) || 0;
       const remainNum = Number(p.remain) || 0;
 
@@ -318,7 +319,7 @@ export default function SellerShareView() {
       }
       return true; // 'all'
     });
-  }, [data?.products, productFilter]);
+  }, [productsList, productFilter]);
 
   if (loading && !data) {
     return (

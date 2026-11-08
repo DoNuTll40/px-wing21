@@ -1,5 +1,4 @@
-import React from 'react';
-import { Trophy, TrendingUp, Package } from 'lucide-react';
+import { Trophy, Package } from 'lucide-react';
 
 export default function BentoTopProducts({ products = [], sellers = [] }) {
   const sellerMap = {};

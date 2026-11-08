@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { RefreshCw } from 'lucide-react';
@@ -14,10 +14,10 @@ import AlertModal from './components/AlertModal';
 import EmptyState from './components/EmptyState';
 import Loading from './components/Loading';
 import DbHealthCheck from './components/DbHealthCheck';
-import HistorySheet from './components/HistorySheet';
+const HistorySheet = lazy(() => import('./components/HistorySheet'));
 import InstallPWA from './components/InstallPWA';
-import Dashboard from './components/Dashboard';
-import SellerShareView from './components/SellerShareView';
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const SellerShareView = lazy(() => import('./components/SellerShareView'));
 
 import {
   getSellers,
@@ -562,10 +562,14 @@ export default function App() {
                 onClose={() => setSharingSeller(null)}
               />
 
-              <HistorySheet
-                isOpen={isHistoryOpen}
-                onClose={() => setIsHistoryOpen(false)}
-              />
+              {isHistoryOpen && (
+                <Suspense fallback={null}>
+                  <HistorySheet
+                    isOpen={isHistoryOpen}
+                    onClose={() => setIsHistoryOpen(false)}
+                  />
+                </Suspense>
+              )}
 
               <ConfirmDialog
                 isOpen={!!deleteTarget && deleteTarget.type === 'seller'}
@@ -593,7 +597,9 @@ export default function App() {
         path="/dashboard"
         element={
           <AdminGuard>
-            <Dashboard onBack={() => navigate('/')} />
+            <Suspense fallback={<Loading />}>
+              <Dashboard onBack={() => navigate('/')} />
+            </Suspense>
           </AdminGuard>
         }
       />
@@ -605,7 +611,11 @@ export default function App() {
 
       <Route
         path="/share/:sellerId"
-        element={<SellerShareView />}
+        element={
+          <Suspense fallback={<Loading />}>
+            <SellerShareView />
+          </Suspense>
+        }
       />
     </Routes>
   );

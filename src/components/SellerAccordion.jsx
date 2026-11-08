@@ -36,8 +36,6 @@ export default function SellerAccordion({
       setIsSaving(true);
       await onUpdateSeller(seller.id, trimmed);
       setIsEditingName(false);
-    } catch (err) {
-      throw err;
     } finally {
       setIsSaving(false);
     }

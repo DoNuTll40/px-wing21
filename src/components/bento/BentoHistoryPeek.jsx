@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { History, Copy, Check, Calendar, ArrowRight, Loader2 } from 'lucide-react';
 import { getReportHistoryGrouped } from '../../services/historyService';
 import { formatDateThai } from '../../utils/formatDate';

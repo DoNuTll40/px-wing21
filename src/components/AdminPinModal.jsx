@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, X, Delete, AlertCircle, Lock, Timer } from 'lucide-react';
+import { ShieldCheck, X, Delete, AlertCircle, Timer } from 'lucide-react';
 import { verifyAdminPin, getAdminPinLength } from '../services/adminService';
 import { vibrateError, vibrateKeyClick, vibrateKeyDelete, vibrateSuccess } from '../utils/haptics';
 

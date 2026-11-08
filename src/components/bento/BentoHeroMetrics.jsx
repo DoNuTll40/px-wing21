@@ -1,4 +1,3 @@
-import React from 'react';
 import { Package, ShoppingBag, TrendingUp, Users, Sparkles, Calendar, Clock } from 'lucide-react';
 import { formatDateThai } from '../../utils/formatDate';
 

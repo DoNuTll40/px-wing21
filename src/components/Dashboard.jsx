@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { getDashboardAnalytics } from '../services/dashboardService';
 import { formatDateThai } from '../utils/formatDate';
-import AIInsightCard from './AIInsightCard';
+const AIInsightCard = lazy(() => import('./AIInsightCard'));
 // import ShareSellerModal from './ShareSellerModal';
 
 export default function Dashboard({ onBack }) {
@@ -162,7 +162,14 @@ export default function Dashboard({ onBack }) {
           </div>
 
           {/* 🤖 PX Smart Assistant Card */}
-          <AIInsightCard dashboardData={data} />
+          <Suspense fallback={
+            <div className="bg-white rounded-3xl p-6 border border-amber-200/90 shadow-2xs text-center text-sm text-gray-500 flex items-center justify-center gap-2">
+              <Loader2 className="animate-spin text-amber-600" size={18} />
+              <span>กำลังโหลด AI Insights...</span>
+            </div>
+          }>
+            <AIInsightCard dashboardData={data} />
+          </Suspense>
 
           {/* 🌟 4 Cards Summary KPIs (2x2 Grid on Mobile, 4 Cols on Desktop) */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

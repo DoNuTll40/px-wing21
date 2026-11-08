@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { Sparkles, RefreshCw, AlertTriangle, Lightbulb, Calendar, Send, MessageSquare, Bot, X, Maximize2, BarChart3, Download, Copy, Check, ChevronDown } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line, Legend } from 'recharts';
 import { toPng } from 'html-to-image';
@@ -277,9 +277,6 @@ export default function AIInsightCard({ dashboardData }) {
   const renderMarkdownText = (text, msgIdx) => {
     if (!text) return null;
 
-    const chartRegex = /```chart\n([\s\S]*?)\n```/gi;
-    const actionsRegex = /```actions\n([\s\S]*?)\n```/gi;
-
     const parts = [];
     let lastIndex = 0;
 
@@ -315,7 +312,7 @@ export default function AIInsightCard({ dashboardData }) {
               onDownload={handleDownloadChart}
             />
           );
-        } catch (e) {
+        } catch {
           return null;
         }
       }
@@ -344,7 +341,7 @@ export default function AIInsightCard({ dashboardData }) {
               </div>
             );
           }
-        } catch (e) {
+        } catch {
           return null;
         }
       }
@@ -421,12 +418,6 @@ export default function AIInsightCard({ dashboardData }) {
     if (!analysis && !loading) {
       handleAnalyze(rangeDays);
     }
-  };
-
-  const handleRangeChange = (e) => {
-    const days = Number(e.target.value);
-    setRangeDays(days);
-    handleAnalyze(days);
   };
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Store, Terminal, ShieldAlert, Copy, Check, Link2, Info, ClockAlert, SearchX, FileQuestion } from 'lucide-react';
 import { copyToClipboard } from '../utils/clipboard';
